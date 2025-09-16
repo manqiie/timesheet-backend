@@ -4,11 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d047f1d8-5628-45a2-9276-1d5118be0fec" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="d047f1d8-5628-45a2-9276-1d5118be0fec" name="Changes" comment="hash password">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/repository/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/repository/UserRepository.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/resources/application.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -59,6 +58,38 @@
       <option name="presentableId" value="Default" />
       <updated>1757925291951</updated>
     </task>
+    <task id="LOCAL-00001" summary="update auth">
+      <option name="closed" value="true" />
+      <created>1757986891557</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1757986891557</updated>
+    </task>
+    <task id="LOCAL-00002" summary="test password">
+      <option name="closed" value="true" />
+      <created>1757988860893</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1757988860893</updated>
+    </task>
+    <task id="LOCAL-00003" summary="hash password">
+      <option name="closed" value="true" />
+      <created>1757992016145</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1757992016161</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Initial commit" />
+    <MESSAGE value="update auth" />
+    <MESSAGE value="test password" />
+    <MESSAGE value="hash password" />
+    <option name="LAST_COMMIT_MESSAGE" value="hash password" />
   </component>
 </project>
