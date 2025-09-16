@@ -21,8 +21,8 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // Explicitly set BCrypt strength to 12 to match database hashes
-        return new BCryptPasswordEncoder(12);
+        // Explicitly set BCrypt strength to 10 to match database hashes
+        return new BCryptPasswordEncoder(10);
     }
 
     @Bean
