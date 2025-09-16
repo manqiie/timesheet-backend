@@ -1,5 +1,4 @@
-//service/SecurityConfiguration.java
-
+// Updated SecurityConfig.java with explicit BCrypt configuration
 package com.goldtech.timesheet_backend.config;
 
 import org.springframework.context.annotation.Bean;
@@ -22,7 +21,8 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        // Explicitly set BCrypt strength to 12 to match database hashes
+        return new BCryptPasswordEncoder(12);
     }
 
     @Bean
@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login").permitAll()
                         .requestMatchers("/auth/validate").permitAll()
                         .requestMatchers("/health").permitAll()
+                        .requestMatchers("/test/**").permitAll()  // Add this for testing
                         .anyRequest().authenticated()
                 );
 
