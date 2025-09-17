@@ -1,4 +1,4 @@
-// UserController.java - Complete User Management with CRUD + Suspend operations
+// UserController.java - Updated with supervisor changes and hierarchical filtering
 package com.goldtech.timesheet_backend.controller;
 
 import com.goldtech.timesheet_backend.dto.user.CreateUserRequest;
@@ -33,7 +33,7 @@ public class UserController {
 
     // Get all users with pagination and filtering
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR')")
     public ResponseEntity<UserResponse> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -44,8 +44,7 @@ public class UserController {
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String department,
             @RequestParam(required = false) String position,
-            @RequestParam(required = false) String projectSite,
-            @RequestParam(required = false) String company
+            @RequestParam(required = false) String projectSite
     ) {
         try {
             logger.debug("Getting users with filters - page: {}, size: {}, search: {}", page, size, search);
@@ -55,7 +54,7 @@ public class UserController {
             Pageable pageable = PageRequest.of(page, size, sort);
 
             Page<UserDto> users = userService.getAllUsers(
-                    pageable, search, status, role, department, position, projectSite, company
+                    pageable, search, status, role, department, position, projectSite
             );
 
             UserResponse response = UserResponse.success(users.getContent(), users.getTotalElements());
@@ -70,7 +69,7 @@ public class UserController {
 
     // Get user by ID
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR')")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         try {
             UserDto user = userService.getUserById(id);
@@ -183,17 +182,19 @@ public class UserController {
         }
     }
 
-    // Get managers for dropdown
-    @GetMapping("/managers")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
-    public ResponseEntity<UserResponse> getManagers() {
+    // Get supervisors for dropdown (changed from managers)
+    @GetMapping("/supervisors")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR')")
+    public ResponseEntity<UserResponse> getSupervisors(@RequestParam(required = false) String projectSite) {
         try {
-            List<UserDto> managers = userService.getManagers();
-            return ResponseEntity.ok(UserResponse.success(managers));
+            List<UserDto> supervisors = projectSite != null ?
+                    userService.getSupervisorsByProjectSite(projectSite) :
+                    userService.getSupervisors();
+            return ResponseEntity.ok(UserResponse.success(supervisors));
         } catch (Exception e) {
-            logger.error("Error getting managers", e);
+            logger.error("Error getting supervisors", e);
             return ResponseEntity.status(500)
-                    .body(UserResponse.error("Failed to retrieve managers: " + e.getMessage()));
+                    .body(UserResponse.error("Failed to retrieve supervisors: " + e.getMessage()));
         }
     }
 
@@ -271,6 +272,72 @@ public class UserController {
             logger.error("Error resetting password for user: {}", id, e);
             return ResponseEntity.status(500)
                     .body(UserResponse.error("Failed to reset password: " + e.getMessage()));
+        }
+    }
+
+    // ========== HIERARCHICAL FILTER ENDPOINTS ==========
+
+    // Get all project sites
+    @GetMapping("/filter-options/project-sites")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR')")
+    public ResponseEntity<UserResponse> getProjectSites() {
+        try {
+            List<String> projectSites = userService.getProjectSites();
+            return ResponseEntity.ok(UserResponse.success(projectSites));
+        } catch (Exception e) {
+            logger.error("Error getting project sites", e);
+            return ResponseEntity.status(500)
+                    .body(UserResponse.error("Failed to retrieve project sites: " + e.getMessage()));
+        }
+    }
+
+    // Get departments (all or by project site)
+    @GetMapping("/filter-options/departments")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR')")
+    public ResponseEntity<UserResponse> getDepartments(@RequestParam(required = false) String projectSite) {
+        try {
+            List<String> departments = projectSite != null ?
+                    userService.getDepartmentsByProjectSite(projectSite) :
+                    userService.getAllDepartments();
+            return ResponseEntity.ok(UserResponse.success(departments));
+        } catch (Exception e) {
+            logger.error("Error getting departments", e);
+            return ResponseEntity.status(500)
+                    .body(UserResponse.error("Failed to retrieve departments: " + e.getMessage()));
+        }
+    }
+
+    // Get positions (all or by project site and/or department)
+    @GetMapping("/filter-options/positions")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR')")
+    public ResponseEntity<UserResponse> getPositions(
+            @RequestParam(required = false) String projectSite,
+            @RequestParam(required = false) String department
+    ) {
+        try {
+            List<String> positions = userService.getPositionsByFilters(projectSite, department);
+            return ResponseEntity.ok(UserResponse.success(positions));
+        } catch (Exception e) {
+            logger.error("Error getting positions", e);
+            return ResponseEntity.status(500)
+                    .body(UserResponse.error("Failed to retrieve positions: " + e.getMessage()));
+        }
+    }
+
+    // Get roles (all or by project site and/or department)
+    @GetMapping("/filter-options/roles")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR')")
+    public ResponseEntity<UserResponse> getRolesByFilters(
+            @RequestParam(required = false) String projectSite,
+            @RequestParam(required = false) String department
+    ) {
+        try {
+            List<String> roles = userService.getRolesByFilters(projectSite, department);
+            return ResponseEntity.ok(UserResponse.success(roles));
+        } catch (Exception e) {
+            logger.error("Error getting roles by filters", e);
+            return ResponseEntity.status(500)
+                    .body(UserResponse.error("Failed to retrieve roles: " + e.getMessage()));
         }
     }
 }

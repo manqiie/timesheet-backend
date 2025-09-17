@@ -1,4 +1,4 @@
-// CreateUserRequest.java
+// CreateUserRequest.java - Updated with supervisor changes
 package com.goldtech.timesheet_backend.dto.user;
 
 import jakarta.validation.constraints.NotBlank;
@@ -34,12 +34,11 @@ public class CreateUserRequest {
     private String department;
 
     private String projectSite;
-    private String company;
 
     @NotNull(message = "Join date is required")
     private LocalDate joinDate;
 
-    private Long managerId;
+    private Long supervisorId; // Changed from managerId
 
     @NotEmpty(message = "At least one role must be selected")
     private List<Long> roles;
@@ -112,14 +111,6 @@ public class CreateUserRequest {
         this.projectSite = projectSite;
     }
 
-    public String getCompany() {
-        return company;
-    }
-
-    public void setCompany(String company) {
-        this.company = company;
-    }
-
     public LocalDate getJoinDate() {
         return joinDate;
     }
@@ -128,12 +119,12 @@ public class CreateUserRequest {
         this.joinDate = joinDate;
     }
 
-    public Long getManagerId() {
-        return managerId;
+    public Long getSupervisorId() {
+        return supervisorId;
     }
 
-    public void setManagerId(Long managerId) {
-        this.managerId = managerId;
+    public void setSupervisorId(Long supervisorId) { // Changed from setManagerId
+        this.supervisorId = supervisorId;
     }
 
     public List<Long> getRoles() {
@@ -144,4 +135,3 @@ public class CreateUserRequest {
         this.roles = roles;
     }
 }
-

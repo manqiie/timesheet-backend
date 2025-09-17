@@ -1,4 +1,4 @@
-//timesheet_backend/entity/User.java
+//timesheet_backend/entity/User.java - Updated with supervisor
 package com.goldtech.timesheet_backend.entity;
 
 import jakarta.persistence.*;
@@ -44,18 +44,15 @@ public class User {
     @Column(name = "project_site")
     private String projectSite;
 
-    @Column(name = "company")
-    private String company;
-
     @Column(name = "join_date")
     private LocalDate joinDate;
 
-    // Manager Relationship
+    // Supervisor Relationship (changed from manager)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id")
-    private User manager;
+    @JoinColumn(name = "supervisor_id")
+    private User supervisor;
 
-    @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "supervisor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<User> subordinates = new HashSet<>();
 
     // Status
@@ -172,14 +169,6 @@ public class User {
         this.projectSite = projectSite;
     }
 
-    public String getCompany() {
-        return company;
-    }
-
-    public void setCompany(String company) {
-        this.company = company;
-    }
-
     public LocalDate getJoinDate() {
         return joinDate;
     }
@@ -188,12 +177,12 @@ public class User {
         this.joinDate = joinDate;
     }
 
-    public User getManager() {
-        return manager;
+    public User getSupervisor() {
+        return supervisor;
     }
 
-    public void setManager(User manager) {
-        this.manager = manager;
+    public void setSupervisor(User supervisor) {
+        this.supervisor = supervisor;
     }
 
     public Set<User> getSubordinates() {

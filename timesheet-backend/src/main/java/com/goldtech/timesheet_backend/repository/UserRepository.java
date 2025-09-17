@@ -1,4 +1,4 @@
-// Updated UserRepository.java with additional query methods
+// Updated UserRepository.java with supervisor changes
 package com.goldtech.timesheet_backend.repository;
 
 import com.goldtech.timesheet_backend.entity.User;
@@ -44,18 +44,33 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
     List<User> findByRoleName(@Param("roleName") String roleName);
 
-    // Find managers (users with manager or admin role)
-    @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name IN ('manager', 'admin') AND u.status = :status ORDER BY u.fullName ASC")
-    List<User> findManagers(@Param("status") UserStatus status);
+    // Find supervisors (users with supervisor or admin role)
+    @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name IN ('supervisor', 'admin') AND u.status = :status ORDER BY u.fullName ASC")
+    List<User> findSupervisors(@Param("status") UserStatus status);
 
-    // Find subordinates by manager ID
-    List<User> findByManagerIdAndStatus(Long managerId, UserStatus status);
+    // Find subordinates by supervisor ID
+    List<User> findBySupervisorIdAndStatus(Long supervisorId, UserStatus status);
 
     // Find by department
     List<User> findByDepartmentAndStatus(String department, UserStatus status);
 
     // Find by project site
     List<User> findByProjectSiteAndStatus(String projectSite, UserStatus status);
+
+    // Find supervisors by project site
+    @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name IN ('supervisor', 'admin') AND u.projectSite = :projectSite AND u.status = :status ORDER BY u.fullName ASC")
+    List<User> findSupervisorsByProjectSite(@Param("projectSite") String projectSite, @Param("status") UserStatus status);
+
+    // Find departments by project site
+    @Query("SELECT DISTINCT u.department FROM User u WHERE u.projectSite = :projectSite AND u.department IS NOT NULL ORDER BY u.department")
+    List<String> findDepartmentsByProjectSite(@Param("projectSite") String projectSite);
+
+    // Find positions by project site and department
+    @Query("SELECT DISTINCT u.position FROM User u WHERE " +
+            "(:projectSite IS NULL OR u.projectSite = :projectSite) AND " +
+            "(:department IS NULL OR u.department = :department) AND " +
+            "u.position IS NOT NULL ORDER BY u.position")
+    List<String> findPositionsByProjectSiteAndDepartment(@Param("projectSite") String projectSite, @Param("department") String department);
 
     // Search users by name or email
     @Query("SELECT u FROM User u WHERE " +
@@ -77,23 +92,19 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @Query("SELECT DISTINCT u.projectSite FROM User u WHERE u.projectSite IS NOT NULL ORDER BY u.projectSite")
     List<String> findAllProjectSites();
 
-    // Get all companies
-    @Query("SELECT DISTINCT u.company FROM User u WHERE u.company IS NOT NULL ORDER BY u.company")
-    List<String> findAllCompanies();
-
     // Find users by multiple IDs
     @Query("SELECT u FROM User u WHERE u.id IN :ids")
     List<User> findByIdIn(@Param("ids") List<Long> ids);
 
     // Check if user has subordinates
-    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.manager.id = :managerId AND u.status = 'ACTIVE'")
-    boolean hasActiveSubordinates(@Param("managerId") Long managerId);
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.supervisor.id = :supervisorId AND u.status = 'ACTIVE'")
+    boolean hasActiveSubordinates(@Param("supervisorId") Long supervisorId);
 
     // Find users by role and status
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.status = :status ORDER BY u.fullName ASC")
     List<User> findByRoleNameAndStatus(@Param("roleName") String roleName, @Param("status") UserStatus status);
 
-    // Advanced search with multiple criteria
+    // Advanced search with multiple criteria and hierarchical filtering
     @Query("SELECT u FROM User u LEFT JOIN u.roles r WHERE " +
             "(:search IS NULL OR " +
             "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -106,15 +117,26 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
             "(:role IS NULL OR r.name = :role) AND " +
             "(:department IS NULL OR u.department = :department) AND " +
             "(:position IS NULL OR u.position = :position) AND " +
-            "(:projectSite IS NULL OR u.projectSite = :projectSite) AND " +
-            "(:company IS NULL OR u.company = :company)")
+            "(:projectSite IS NULL OR u.projectSite = :projectSite)")
     List<User> findWithFilters(
             @Param("search") String search,
             @Param("status") UserStatus status,
             @Param("role") String role,
             @Param("department") String department,
             @Param("position") String position,
-            @Param("projectSite") String projectSite,
-            @Param("company") String company
+            @Param("projectSite") String projectSite
     );
+
+    // Get roles by project site
+    @Query("SELECT DISTINCT r.name FROM User u JOIN u.roles r WHERE " +
+            "(:projectSite IS NULL OR u.projectSite = :projectSite) " +
+            "ORDER BY r.name")
+    List<String> findRolesByProjectSite(@Param("projectSite") String projectSite);
+
+    // Get roles by project site and department
+    @Query("SELECT DISTINCT r.name FROM User u JOIN u.roles r WHERE " +
+            "(:projectSite IS NULL OR u.projectSite = :projectSite) AND " +
+            "(:department IS NULL OR u.department = :department) " +
+            "ORDER BY r.name")
+    List<String> findRolesByProjectSiteAndDepartment(@Param("projectSite") String projectSite, @Param("department") String department);
 }

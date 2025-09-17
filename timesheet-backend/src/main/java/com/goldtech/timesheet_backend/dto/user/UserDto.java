@@ -17,9 +17,8 @@ public class UserDto {
     private String position;
     private String department;
     private String projectSite;
-    private String company;
     private LocalDate joinDate;
-    private String managerName;
+    private String supervisorName;
     private User.UserStatus status;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
@@ -100,14 +99,6 @@ public class UserDto {
         this.projectSite = projectSite;
     }
 
-    public String getCompany() {
-        return company;
-    }
-
-    public void setCompany(String company) {
-        this.company = company;
-    }
-
     public LocalDate getJoinDate() {
         return joinDate;
     }
@@ -116,12 +107,12 @@ public class UserDto {
         this.joinDate = joinDate;
     }
 
-    public String getManagerName() {
-        return managerName;
+    public String getSupervisorName() {
+        return supervisorName;
     }
 
-    public void setManagerName(String managerName) {
-        this.managerName = managerName;
+    public void setSupervisorName(String supervisorName) {
+        this.supervisorName = supervisorName;
     }
 
     public User.UserStatus getStatus() {
@@ -192,4 +183,3 @@ public class UserDto {
         this.permissions = permissions;
     }
 }
-

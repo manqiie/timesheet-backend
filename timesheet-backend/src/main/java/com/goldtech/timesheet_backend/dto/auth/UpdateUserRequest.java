@@ -1,4 +1,4 @@
-// UpdateUserRequest.java
+// UpdateUserRequest.java - Updated with supervisor changes
 package com.goldtech.timesheet_backend.dto.user;
 
 import com.goldtech.timesheet_backend.entity.User;
@@ -19,9 +19,8 @@ public class UpdateUserRequest {
     private String position;
     private String department;
     private String projectSite;
-    private String company;
     private LocalDate joinDate;
-    private Long managerId;
+    private Long supervisorId; // Changed from managerId
     private List<Long> roles;
     private User.UserStatus status;
 
@@ -85,14 +84,6 @@ public class UpdateUserRequest {
         this.projectSite = projectSite;
     }
 
-    public String getCompany() {
-        return company;
-    }
-
-    public void setCompany(String company) {
-        this.company = company;
-    }
-
     public LocalDate getJoinDate() {
         return joinDate;
     }
@@ -101,12 +92,12 @@ public class UpdateUserRequest {
         this.joinDate = joinDate;
     }
 
-    public Long getManagerId() {
-        return managerId;
+    public Long getSupervisorId() { // Changed from getManagerId
+        return supervisorId;
     }
 
-    public void setManagerId(Long managerId) {
-        this.managerId = managerId;
+    public void setSupervisorId(Long supervisorId) { // Changed from setManagerId
+        this.supervisorId = supervisorId;
     }
 
     public List<Long> getRoles() {
@@ -125,4 +116,3 @@ public class UpdateUserRequest {
         this.status = status;
     }
 }
-

@@ -6,9 +6,14 @@
   <component name="ChangeListManager">
     <list default="true" id="d047f1d8-5628-45a2-9276-1d5118be0fec" name="Changes" comment="hash password">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/controller/UserController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/CreateUserRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/CreateUserRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/UpdateUserRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/UpdateUserRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/user/UserDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/user/UserDto.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/entity/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/mapper/UserMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/mapper/UserMapper.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/repository/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/repository/UserRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/UserService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,17 +44,17 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/MQ/Downloads/timesheet-backend"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/MQ/Downloads/timesheet-backend&quot;
   }
-}]]></component>
+}</component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="d047f1d8-5628-45a2-9276-1d5118be0fec" name="Changes" comment="" />

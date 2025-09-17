@@ -1,4 +1,4 @@
-// UserService.java - Complete Business Logic for User Management
+// UserService.java - Updated with supervisor changes and hierarchical filtering
 package com.goldtech.timesheet_backend.service;
 
 import com.goldtech.timesheet_backend.dto.user.CreateUserRequest;
@@ -51,11 +51,10 @@ public class UserService {
             String role,
             String department,
             String position,
-            String projectSite,
-            String company
+            String projectSite
     ) {
         Specification<User> spec = createUserSpecification(
-                search, status, role, department, position, projectSite, company
+                search, status, role, department, position, projectSite
         );
 
         Page<User> users = userRepository.findAll(spec, pageable);
@@ -65,7 +64,7 @@ public class UserService {
     // Create dynamic specification for filtering
     private Specification<User> createUserSpecification(
             String search, String status, String role, String department,
-            String position, String projectSite, String company
+            String position, String projectSite
     ) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -109,11 +108,6 @@ public class UserService {
                 predicates.add(criteriaBuilder.equal(root.get("projectSite"), projectSite));
             }
 
-            // Company filter
-            if (company != null && !company.equals("all")) {
-                predicates.add(criteriaBuilder.equal(root.get("company"), company));
-            }
-
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }
@@ -141,14 +135,13 @@ public class UserService {
         user.setPosition(request.getPosition());
         user.setDepartment(request.getDepartment());
         user.setProjectSite(request.getProjectSite());
-        user.setCompany(request.getCompany());
         user.setJoinDate(request.getJoinDate());
         user.setStatus(User.UserStatus.ACTIVE);
 
-        // Set manager
-        if (request.getManagerId() != null) {
-            Optional<User> managerOpt = userRepository.findById(request.getManagerId());
-            managerOpt.ifPresent(user::setManager);
+        // Set supervisor (changed from manager)
+        if (request.getSupervisorId() != null) {
+            Optional<User> supervisorOpt = userRepository.findById(request.getSupervisorId());
+            supervisorOpt.ifPresent(user::setSupervisor);
         }
 
         // Set roles
@@ -201,9 +194,6 @@ public class UserService {
         if (request.getProjectSite() != null) {
             user.setProjectSite(request.getProjectSite().isEmpty() ? null : request.getProjectSite());
         }
-        if (request.getCompany() != null) {
-            user.setCompany(request.getCompany().isEmpty() ? null : request.getCompany());
-        }
         if (request.getJoinDate() != null) {
             user.setJoinDate(request.getJoinDate());
         }
@@ -211,13 +201,13 @@ public class UserService {
             user.setStatus(request.getStatus());
         }
 
-        // Update manager
-        if (request.getManagerId() != null) {
-            if (request.getManagerId() == 0) {
-                user.setManager(null);
+        // Update supervisor (changed from manager)
+        if (request.getSupervisorId() != null) {
+            if (request.getSupervisorId() == 0) {
+                user.setSupervisor(null);
             } else {
-                Optional<User> managerOpt = userRepository.findById(request.getManagerId());
-                managerOpt.ifPresent(user::setManager);
+                Optional<User> supervisorOpt = userRepository.findById(request.getSupervisorId());
+                supervisorOpt.ifPresent(user::setSupervisor);
             }
         }
 
@@ -265,7 +255,7 @@ public class UserService {
         User user = userOpt.get();
 
         // Check if user has subordinates
-        List<User> subordinates = userRepository.findByManagerIdAndStatus(id, User.UserStatus.ACTIVE);
+        List<User> subordinates = userRepository.findBySupervisorIdAndStatus(id, User.UserStatus.ACTIVE);
         if (!subordinates.isEmpty()) {
             throw new IllegalStateException("Cannot delete user with active subordinates. Please reassign subordinates first.");
         }
@@ -275,10 +265,16 @@ public class UserService {
         return true;
     }
 
-    // Get managers
-    public List<UserDto> getManagers() {
-        List<User> managers = userRepository.findManagers(User.UserStatus.ACTIVE);
-        return userMapper.toDtoList(managers);
+    // Get supervisors (changed from getManagers)
+    public List<UserDto> getSupervisors() {
+        List<User> supervisors = userRepository.findSupervisors(User.UserStatus.ACTIVE);
+        return userMapper.toDtoList(supervisors);
+    }
+
+    // Get supervisors by project site
+    public List<UserDto> getSupervisorsByProjectSite(String projectSite) {
+        List<User> supervisors = userRepository.findSupervisorsByProjectSite(projectSite, User.UserStatus.ACTIVE);
+        return userMapper.toDtoList(supervisors);
     }
 
     // Get roles
@@ -337,13 +333,13 @@ public class UserService {
             if (updates.containsKey("projectSite")) {
                 user.setProjectSite((String) updates.get("projectSite"));
             }
-            if (updates.containsKey("managerId")) {
-                Long managerId = Long.valueOf(updates.get("managerId").toString());
-                if (managerId == 0) {
-                    user.setManager(null);
+            if (updates.containsKey("supervisorId")) {
+                Long supervisorId = Long.valueOf(updates.get("supervisorId").toString());
+                if (supervisorId == 0) {
+                    user.setSupervisor(null);
                 } else {
-                    Optional<User> managerOpt = userRepository.findById(managerId);
-                    managerOpt.ifPresent(user::setManager);
+                    Optional<User> supervisorOpt = userRepository.findById(supervisorId);
+                    supervisorOpt.ifPresent(user::setSupervisor);
                 }
             }
         }
@@ -367,6 +363,38 @@ public class UserService {
         return true;
     }
 
+    // ========== HIERARCHICAL FILTER METHODS ==========
+
+    // Get all project sites
+    public List<String> getProjectSites() {
+        return userRepository.findAllProjectSites();
+    }
+
+    // Get all departments
+    public List<String> getAllDepartments() {
+        return userRepository.findAllDepartments();
+    }
+
+    // Get departments by project site
+    public List<String> getDepartmentsByProjectSite(String projectSite) {
+        return userRepository.findDepartmentsByProjectSite(projectSite);
+    }
+
+    // Get positions by project site and department
+    public List<String> getPositionsByFilters(String projectSite, String department) {
+        return userRepository.findPositionsByProjectSiteAndDepartment(projectSite, department);
+    }
+
+    // Get roles by project site
+    public List<String> getRolesByProjectSite(String projectSite) {
+        return userRepository.findRolesByProjectSite(projectSite);
+    }
+
+    // Get roles by project site and department
+    public List<String> getRolesByFilters(String projectSite, String department) {
+        return userRepository.findRolesByProjectSiteAndDepartment(projectSite, department);
+    }
+
     // Validation methods
     private void validateCreateUserRequest(CreateUserRequest request) {
         // Check email uniqueness
@@ -380,9 +408,9 @@ public class UserService {
             throw new IllegalArgumentException("Employee ID already exists: " + request.getEmployeeId());
         }
 
-        // Validate manager exists
-        if (request.getManagerId() != null && !userRepository.existsById(request.getManagerId())) {
-            throw new IllegalArgumentException("Manager not found with ID: " + request.getManagerId());
+        // Validate supervisor exists (changed from manager)
+        if (request.getSupervisorId() != null && !userRepository.existsById(request.getSupervisorId())) {
+            throw new IllegalArgumentException("Supervisor not found with ID: " + request.getSupervisorId());
         }
 
         // Validate roles exist
@@ -410,10 +438,10 @@ public class UserService {
             }
         }
 
-        // Validate manager exists
-        if (request.getManagerId() != null && request.getManagerId() != 0 &&
-                !userRepository.existsById(request.getManagerId())) {
-            throw new IllegalArgumentException("Manager not found with ID: " + request.getManagerId());
+        // Validate supervisor exists (changed from manager)
+        if (request.getSupervisorId() != null && request.getSupervisorId() != 0 &&
+                !userRepository.existsById(request.getSupervisorId())) {
+            throw new IllegalArgumentException("Supervisor not found with ID: " + request.getSupervisorId());
         }
 
         // Validate roles exist

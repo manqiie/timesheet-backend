@@ -1,4 +1,4 @@
-// UserMapper.java
+// UserMapper.java - Updated with supervisor changes
 package com.goldtech.timesheet_backend.mapper;
 
 import com.goldtech.timesheet_backend.dto.user.RoleDto;
@@ -27,16 +27,15 @@ public class UserMapper {
         dto.setPosition(user.getPosition());
         dto.setDepartment(user.getDepartment());
         dto.setProjectSite(user.getProjectSite());
-        dto.setCompany(user.getCompany());
         dto.setJoinDate(user.getJoinDate());
         dto.setStatus(user.getStatus());
         dto.setLastLoginAt(user.getLastLoginAt());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
 
-        // Set manager name
-        if (user.getManager() != null) {
-            dto.setManagerName(user.getManager().getFullName());
+        // Set supervisor name (changed from manager)
+        if (user.getSupervisor() != null) {
+            dto.setSupervisorName(user.getSupervisor().getFullName());
         }
 
         // Map roles
@@ -46,7 +45,7 @@ public class UserMapper {
                     .collect(Collectors.toList());
             dto.setRoles(roleDtos);
 
-            // Set primary role for frontend compatibility
+            // Set primary role and permissions for frontend compatibility
             setPrimaryRoleAndPermissions(dto, user);
         }
 
@@ -82,7 +81,6 @@ public class UserMapper {
         user.setPosition(dto.getPosition());
         user.setDepartment(dto.getDepartment());
         user.setProjectSite(dto.getProjectSite());
-        user.setCompany(dto.getCompany());
         user.setJoinDate(dto.getJoinDate());
         user.setStatus(dto.getStatus());
         user.setLastLoginAt(dto.getLastLoginAt());
@@ -100,7 +98,7 @@ public class UserMapper {
      * Set primary role and permissions for frontend compatibility
      */
     private void setPrimaryRoleAndPermissions(UserDto dto, User user) {
-        // Determine primary role (admin > manager > employee)
+        // Determine primary role (admin > supervisor > employee)
         String primaryRole = "employee"; // default
 
         for (Role role : user.getRoles()) {
@@ -108,9 +106,9 @@ public class UserMapper {
                 case "admin":
                     primaryRole = "admin";
                     break;
-                case "manager":
+                case "supervisor":
                     if (!"admin".equals(primaryRole)) {
-                        primaryRole = "manager";
+                        primaryRole = "supervisor";
                     }
                     break;
             }
@@ -140,7 +138,7 @@ public class UserMapper {
                     ));
                     break;
 
-                case "manager":
+                case "supervisor": // Changed from "manager"
                     permissions.addAll(List.of(
                             "timesheet.create", "timesheet.view", "timesheet.edit",
                             "timesheet.approve", "employee.view"
