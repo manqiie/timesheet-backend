@@ -1,4 +1,4 @@
-// Updated SecurityConfig.java with role-based access control
+// Updated SecurityConfig.java with timesheet endpoints
 package com.goldtech.timesheet_backend.config;
 
 import org.springframework.context.annotation.Bean;
@@ -51,28 +51,29 @@ public class SecurityConfig {
                         .requestMatchers("/test/**").permitAll()  // For testing
 
                         // User management endpoints - role-based access
-                        .requestMatchers("/users").hasAnyRole("ADMIN", "MANAGER")
-                        .requestMatchers("/users/managers").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/users").hasAnyRole("ADMIN", "SUPERVISOR")
+                        .requestMatchers("/users/supervisors").hasAnyRole("ADMIN", "SUPERVISOR")
                         .requestMatchers("/users/roles").hasRole("ADMIN")
                         .requestMatchers("/users/stats").hasRole("ADMIN")
                         .requestMatchers("/users/*/status").hasRole("ADMIN")
                         .requestMatchers("/users/*/reset-password").hasRole("ADMIN")
                         .requestMatchers("/users/bulk").hasRole("ADMIN")
+                        .requestMatchers("/users/filter-options/**").hasAnyRole("ADMIN", "SUPERVISOR")
 
-                        // GET single user - admins and managers
-                        .requestMatchers("GET", "/users/*").hasAnyRole("ADMIN", "MANAGER")
-
+                        // GET single user - admins and supervisors
+                        .requestMatchers("GET", "/users/*").hasAnyRole("ADMIN", "SUPERVISOR")
                         // POST (create) - admin only
                         .requestMatchers("POST", "/users").hasRole("ADMIN")
-
                         // PUT (update) - admin only
                         .requestMatchers("PUT", "/users/*").hasRole("ADMIN")
-
                         // DELETE - admin only
                         .requestMatchers("DELETE", "/users/*").hasRole("ADMIN")
 
                         // User profile endpoints
                         .requestMatchers("/auth/me").authenticated()
+
+                        // Timesheet endpoints - employees and above can access their own timesheets
+                        .requestMatchers("/timesheets/**").hasAnyRole("EMPLOYEE", "SUPERVISOR", "ADMIN")
 
                         // All other requests require authentication
                         .anyRequest().authenticated()
