@@ -1,9 +1,8 @@
-// 7. Save Entry Request DTO
-// src/main/java/com/goldtech/timesheet_backend/dto/timesheet/SaveEntryRequestDto.java
+// Updated SaveEntryRequestDto.java - Add support for documents
 package com.goldtech.timesheet_backend.dto.timesheet;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 public class SaveEntryRequestDto {
     @NotBlank(message = "Date is required")
@@ -19,6 +18,9 @@ public class SaveEntryRequestDto {
     private String notes;
     private String primaryDocumentDay; // For document references
     private Boolean isPrimaryDocument;
+
+    // Add support for documents
+    private List<SupportingDocumentDto> supportingDocuments;
 
     // Constructors
     public SaveEntryRequestDto() {}
@@ -50,4 +52,29 @@ public class SaveEntryRequestDto {
 
     public Boolean getIsPrimaryDocument() { return isPrimaryDocument; }
     public void setIsPrimaryDocument(Boolean isPrimaryDocument) { this.isPrimaryDocument = isPrimaryDocument; }
+
+    public List<SupportingDocumentDto> getSupportingDocuments() { return supportingDocuments; }
+    public void setSupportingDocuments(List<SupportingDocumentDto> supportingDocuments) { this.supportingDocuments = supportingDocuments; }
+
+    // Inner class for supporting documents
+    public static class SupportingDocumentDto {
+        private String name;
+        private String type;
+        private Long size;
+        private String base64Data; // Base64 encoded file content
+
+        public SupportingDocumentDto() {}
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
+
+        public Long getSize() { return size; }
+        public void setSize(Long size) { this.size = size; }
+
+        public String getBase64Data() { return base64Data; }
+        public void setBase64Data(String base64Data) { this.base64Data = base64Data; }
+    }
 }

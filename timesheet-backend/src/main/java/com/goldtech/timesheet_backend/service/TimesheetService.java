@@ -39,6 +39,9 @@ public class TimesheetService {
     @Autowired
     private DayEntryDocumentRepository dayEntryDocumentRepository;
 
+    @Autowired
+    private DocumentStorageService documentStorageService;
+
     /**
      * Get timesheet data for a specific month
      */
@@ -84,7 +87,7 @@ public class TimesheetService {
     }
 
     /**
-     * Save a single day entry
+     * Save a single day entry with document support
      */
     public DayEntryDto saveDayEntry(Long userId, SaveEntryRequestDto request) {
         logger.debug("Saving day entry for user {} on {}", userId, request.getDate());
@@ -98,29 +101,47 @@ public class TimesheetService {
         Optional<DayEntry> existingEntry = dayEntryRepository.findByUserIdAndDate(userId, date);
 
         DayEntry dayEntry;
+        boolean isNewEntry = false;
+
         if (existingEntry.isPresent()) {
             dayEntry = existingEntry.get();
+            // Delete existing documents if updating
+            documentStorageService.deleteDocuments(dayEntry.getId());
         } else {
             dayEntry = new DayEntry();
             dayEntry.setUser(user);
             dayEntry.setDate(date);
+            isNewEntry = true;
         }
 
         // Update entry fields
         updateDayEntryFromRequest(dayEntry, request);
 
-        // Save the entry
+        // Save the entry first to get the ID
         dayEntry = dayEntryRepository.save(dayEntry);
+
+        // Save supporting documents if provided
+        if (request.getSupportingDocuments() != null && !request.getSupportingDocuments().isEmpty()) {
+            List<DocumentStorageService.DocumentUploadDto> documents = request.getSupportingDocuments().stream()
+                    .map(doc -> new DocumentStorageService.DocumentUploadDto(
+                            doc.getName(), doc.getType(), doc.getSize(), doc.getBase64Data()))
+                    .collect(Collectors.toList());
+
+            documentStorageService.saveDocuments(dayEntry, documents);
+        }
 
         // Update monthly timesheet status to draft if it was submitted
         updateMonthlyTimesheetToDraft(userId, date.getYear(), date.getMonthValue());
 
-        logger.info("Day entry saved for user {} on {}", userId, request.getDate());
+        logger.info("Day entry {} for user {} on {} with {} documents",
+                isNewEntry ? "created" : "updated", userId, request.getDate(),
+                request.getSupportingDocuments() != null ? request.getSupportingDocuments().size() : 0);
+
         return convertToDto(dayEntry);
     }
 
     /**
-     * Save multiple day entries (bulk operation)
+     * Save multiple day entries with document support
      */
     public List<DayEntryDto> saveBulkEntries(Long userId, List<SaveEntryRequestDto> requests) {
         logger.debug("Saving {} bulk entries for user {}", requests.size(), userId);
@@ -139,6 +160,8 @@ public class TimesheetService {
             DayEntry dayEntry;
             if (existingEntry.isPresent()) {
                 dayEntry = existingEntry.get();
+                // Delete existing documents if updating
+                documentStorageService.deleteDocuments(dayEntry.getId());
             } else {
                 dayEntry = new DayEntry();
                 dayEntry.setUser(user);
@@ -150,8 +173,23 @@ public class TimesheetService {
             savedEntries.add(dayEntry);
         }
 
-        // Save all entries
+        // Save all entries first
         savedEntries = dayEntryRepository.saveAll(savedEntries);
+
+        // Save documents for entries that have them
+        for (int i = 0; i < requests.size(); i++) {
+            SaveEntryRequestDto request = requests.get(i);
+            DayEntry dayEntry = savedEntries.get(i);
+
+            if (request.getSupportingDocuments() != null && !request.getSupportingDocuments().isEmpty()) {
+                List<DocumentStorageService.DocumentUploadDto> documents = request.getSupportingDocuments().stream()
+                        .map(doc -> new DocumentStorageService.DocumentUploadDto(
+                                doc.getName(), doc.getType(), doc.getSize(), doc.getBase64Data()))
+                        .collect(Collectors.toList());
+
+                documentStorageService.saveDocuments(dayEntry, documents);
+            }
+        }
 
         // Update monthly timesheet status to draft if needed
         if (!requests.isEmpty()) {
@@ -159,7 +197,13 @@ public class TimesheetService {
             updateMonthlyTimesheetToDraft(userId, firstDate.getYear(), firstDate.getMonthValue());
         }
 
-        logger.info("Saved {} bulk entries for user {}", savedEntries.size(), userId);
+        int totalDocuments = requests.stream()
+                .mapToInt(req -> req.getSupportingDocuments() != null ? req.getSupportingDocuments().size() : 0)
+                .sum();
+
+        logger.info("Saved {} bulk entries for user {} with {} total documents",
+                savedEntries.size(), userId, totalDocuments);
+
         return savedEntries.stream().map(this::convertToDto).collect(Collectors.toList());
     }
 
@@ -231,19 +275,25 @@ public class TimesheetService {
     }
 
     /**
-     * Delete a day entry
+     * Delete a day entry and its documents
      */
     public void deleteDayEntry(Long userId, String date) {
         LocalDate entryDate = LocalDate.parse(date);
         Optional<DayEntry> entry = dayEntryRepository.findByUserIdAndDate(userId, entryDate);
 
         if (entry.isPresent()) {
-            dayEntryRepository.delete(entry.get());
+            DayEntry dayEntry = entry.get();
+
+            // Delete associated documents
+            documentStorageService.deleteDocuments(dayEntry.getId());
+
+            // Delete the entry
+            dayEntryRepository.delete(dayEntry);
 
             // Update monthly timesheet status to draft if it was submitted
             updateMonthlyTimesheetToDraft(userId, entryDate.getYear(), entryDate.getMonthValue());
 
-            logger.info("Day entry deleted for user {} on {}", userId, date);
+            logger.info("Day entry and documents deleted for user {} on {}", userId, date);
         }
     }
 
@@ -329,6 +379,9 @@ public class TimesheetService {
                 });
     }
 
+    /**
+     * Convert DayEntry to DTO with document information
+     */
     private DayEntryDto convertToDto(DayEntry entry) {
         DayEntryDto dto = new DayEntryDto();
         dto.setId(entry.getId());
@@ -349,7 +402,7 @@ public class TimesheetService {
         }
         if (entry.getPrimaryDocumentDay() != null) {
             dto.setPrimaryDocumentDay(entry.getPrimaryDocumentDay().toString());
-            dto.setDocumentReference(entry.getPrimaryDocumentDay().toString()); // For frontend compatibility
+            dto.setDocumentReference(entry.getPrimaryDocumentDay().toString());
         }
 
         dto.setIsPrimaryDocument(entry.getIsPrimaryDocument());
@@ -357,10 +410,19 @@ public class TimesheetService {
         dto.setCreatedAt(entry.getCreatedAt());
         dto.setUpdatedAt(entry.getUpdatedAt());
 
-        // Convert documents
-        if (entry.getDocuments() != null && !entry.getDocuments().isEmpty()) {
-            List<DocumentDto> documentDtos = entry.getDocuments().stream()
-                    .map(doc -> new DocumentDto(doc.getOriginalFilename(), doc.getMimeType(), doc.getFileSize()))
+        // Load and convert documents
+        List<DayEntryDocument> documents = dayEntryDocumentRepository.findByDayEntryId(entry.getId());
+        if (!documents.isEmpty()) {
+            List<DocumentDto> documentDtos = documents.stream()
+                    .map(doc -> {
+                        DocumentDto docDto = new DocumentDto();
+                        docDto.setId(doc.getId());
+                        docDto.setName(doc.getOriginalFilename());
+                        docDto.setType(doc.getMimeType());
+                        docDto.setSize(doc.getFileSize());
+                        docDto.setUploadedAt(doc.getUploadedAt());
+                        return docDto;
+                    })
                     .collect(Collectors.toList());
             dto.setSupportingDocuments(documentDtos);
         }
