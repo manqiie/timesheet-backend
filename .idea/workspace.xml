@@ -4,16 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d047f1d8-5628-45a2-9276-1d5118be0fec" name="Changes" comment="hash password">
+    <list default="true" id="d047f1d8-5628-45a2-9276-1d5118be0fec" name="Changes" comment="update time/sp/+approve">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/controller/UserController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/CreateUserRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/CreateUserRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/UpdateUserRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/auth/UpdateUserRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/user/UserDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/dto/user/UserDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/entity/User.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/mapper/UserMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/mapper/UserMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/repository/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/repository/UserRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/TimesheetApprovalService.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/TimesheetApprovalService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/TimesheetService.java" beforeDir="false" afterPath="$PROJECT_DIR$/timesheet-backend/src/main/java/com/goldtech/timesheet_backend/service/TimesheetService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -87,7 +81,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757992016161</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="update time/sp/+approve">
+      <option name="closed" value="true" />
+      <created>1758270644397</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1758270644397</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -95,6 +97,7 @@
     <MESSAGE value="update auth" />
     <MESSAGE value="test password" />
     <MESSAGE value="hash password" />
-    <option name="LAST_COMMIT_MESSAGE" value="hash password" />
+    <MESSAGE value="update time/sp/+approve" />
+    <option name="LAST_COMMIT_MESSAGE" value="update time/sp/+approve" />
   </component>
 </project>

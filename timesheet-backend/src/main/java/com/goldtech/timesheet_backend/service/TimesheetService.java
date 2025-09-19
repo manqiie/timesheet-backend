@@ -185,19 +185,33 @@ public class TimesheetService {
             throw new IllegalArgumentException("Cannot submit empty timesheet");
         }
 
-        // Update status and submission time
+        // Get the employee's supervisor
+        User employee = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (employee.getSupervisor() == null) {
+            throw new IllegalArgumentException("Cannot submit timesheet: No supervisor assigned to this employee");
+        }
+
+        // Update status and submission details
         monthlyTimesheet.setStatus(MonthlyTimesheet.TimesheetStatus.submitted);
         monthlyTimesheet.setSubmittedAt(LocalDateTime.now());
 
-        // Clear previous approval data (in case of resubmission)
-        monthlyTimesheet.setApprovedBy(null);
+        // Set approved_by to the employee's supervisor when submitting
+        monthlyTimesheet.setApprovedBy(employee.getSupervisor());
+
+        // Clear approval timestamp and comments (in case of resubmission)
         monthlyTimesheet.setApprovedAt(null);
         monthlyTimesheet.setApprovalComments(null);
 
         monthlyTimesheet = monthlyTimesheetRepository.save(monthlyTimesheet);
 
-        logger.info("Timesheet {} for user {} - {}/{}",
-                canResubmit ? "resubmitted" : "submitted", userId, year, month);
+        logger.info("Timesheet {} for user {} - {}/{}. Assigned to supervisor: {} (ID: {})",
+                canResubmit ? "resubmitted" : "submitted",
+                userId, year, month,
+                employee.getSupervisor().getFullName(),
+                employee.getSupervisor().getId());
+
         return getTimesheet(userId, year, month);
     }
 

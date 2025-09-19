@@ -102,13 +102,10 @@ public class TimesheetApprovalService {
             throw new IllegalArgumentException("Timesheet is not in a state that can be approved/rejected");
         }
 
-        // Get supervisor user
-        Optional<User> supervisorOpt = userRepository.findById(supervisorId);
-        if (supervisorOpt.isEmpty()) {
-            throw new IllegalArgumentException("Supervisor not found");
+        // Verify that the current supervisor is the one assigned to approve
+        if (!timesheet.getApprovedBy().getId().equals(supervisorId)) {
+            throw new IllegalArgumentException("You are not the assigned supervisor for this timesheet");
         }
-
-        User supervisor = supervisorOpt.get();
 
         // Update timesheet status
         if ("approved".equals(decision)) {
@@ -119,7 +116,8 @@ public class TimesheetApprovalService {
             throw new IllegalArgumentException("Invalid decision: " + decision);
         }
 
-        timesheet.setApprovedBy(supervisor);
+        // Set approval timestamp and comments
+        // Note: approved_by remains the same (was set during submission)
         timesheet.setApprovedAt(LocalDateTime.now());
         timesheet.setApprovalComments(comments);
 
