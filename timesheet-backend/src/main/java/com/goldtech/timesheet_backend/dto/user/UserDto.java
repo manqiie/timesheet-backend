@@ -1,4 +1,4 @@
-// dto/user/UserDto.java
+// dto/user/UserDto.java - CLEAN VERSION - Only supervisor, no manager
 package com.goldtech.timesheet_backend.dto.user;
 
 import com.goldtech.timesheet_backend.entity.User;
@@ -18,7 +18,11 @@ public class UserDto {
     private String department;
     private String projectSite;
     private LocalDate joinDate;
+
+    // CLEAN: Only supervisor fields
+    private Long supervisorId;
     private String supervisorName;
+
     private User.UserStatus status;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
@@ -105,6 +109,15 @@ public class UserDto {
 
     public void setJoinDate(LocalDate joinDate) {
         this.joinDate = joinDate;
+    }
+
+    // CLEAN: Only supervisor fields
+    public Long getSupervisorId() {
+        return supervisorId;
+    }
+
+    public void setSupervisorId(Long supervisorId) {
+        this.supervisorId = supervisorId;
     }
 
     public String getSupervisorName() {

@@ -1,4 +1,4 @@
-// 4. Monthly Timesheet Repository
+// 4. Monthly Timesheet Repository - FIXED
 // src/main/java/com/goldtech/timesheet_backend/repository/MonthlyTimesheetRepository.java
 package com.goldtech.timesheet_backend.repository;
 
@@ -20,7 +20,10 @@ public interface MonthlyTimesheetRepository extends JpaRepository<MonthlyTimeshe
     // Find timesheets by user
     List<MonthlyTimesheet> findByUserIdOrderByYearDescMonthDesc(Long userId);
 
-    // Find timesheets by status
+    // Find timesheets by status - ADDED THIS METHOD
+    List<MonthlyTimesheet> findByStatus(MonthlyTimesheet.TimesheetStatus status);
+
+    // Find timesheets by status with ordering
     List<MonthlyTimesheet> findByStatusOrderBySubmittedAtAsc(MonthlyTimesheet.TimesheetStatus status);
 
     // Find timesheets pending approval for supervisor
@@ -29,6 +32,14 @@ public interface MonthlyTimesheetRepository extends JpaRepository<MonthlyTimeshe
             "WHERE u.supervisor.id = :supervisorId AND mt.status = 'submitted' " +
             "ORDER BY mt.submittedAt ASC")
     List<MonthlyTimesheet> findPendingApprovalBySupervisor(@Param("supervisorId") Long supervisorId);
+
+    // Find all timesheets for supervisor (all statuses)
+    @Query("SELECT mt FROM MonthlyTimesheet mt " +
+            "JOIN mt.user u " +
+            "WHERE u.supervisor.id = :supervisorId AND mt.status IN :statuses " +
+            "ORDER BY mt.year DESC, mt.month DESC, mt.submittedAt DESC")
+    List<MonthlyTimesheet> findBySupervisorAndStatusIn(@Param("supervisorId") Long supervisorId,
+                                                       @Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
 
     // Find timesheets by year and month
     List<MonthlyTimesheet> findByYearAndMonthOrderByUserFullNameAsc(Integer year, Integer month);

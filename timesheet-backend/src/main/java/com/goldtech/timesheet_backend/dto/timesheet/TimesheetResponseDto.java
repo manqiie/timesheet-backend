@@ -1,4 +1,4 @@
-// 5. Timesheet Response DTO
+// 5. Updated Timesheet Response DTO - Add employee info for supervisors
 // src/main/java/com/goldtech/timesheet_backend/dto/timesheet/TimesheetResponseDto.java
 package com.goldtech.timesheet_backend.dto.timesheet;
 
@@ -19,6 +19,12 @@ public class TimesheetResponseDto {
     private TimesheetStatsDto stats;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Employee information (for supervisor view)
+    private String employeeName;
+    private String employeeId;
+    private String employeePosition;
+    private String employeeProjectSite;
 
     // Constructors
     public TimesheetResponseDto() {}
@@ -62,4 +68,17 @@ public class TimesheetResponseDto {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    // Employee information getters and setters
+    public String getEmployeeName() { return employeeName; }
+    public void setEmployeeName(String employeeName) { this.employeeName = employeeName; }
+
+    public String getEmployeeId() { return employeeId; }
+    public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }
+
+    public String getEmployeePosition() { return employeePosition; }
+    public void setEmployeePosition(String employeePosition) { this.employeePosition = employeePosition; }
+
+    public String getEmployeeProjectSite() { return employeeProjectSite; }
+    public void setEmployeeProjectSite(String employeeProjectSite) { this.employeeProjectSite = employeeProjectSite; }
 }

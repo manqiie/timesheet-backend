@@ -1,4 +1,4 @@
-// UserMapper.java - Updated with supervisor changes
+// UserMapper.java - CLEAN VERSION - Only supervisor, no manager
 package com.goldtech.timesheet_backend.mapper;
 
 import com.goldtech.timesheet_backend.dto.user.RoleDto;
@@ -33,8 +33,9 @@ public class UserMapper {
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
 
-        // Set supervisor name (changed from manager)
+        // CLEAN: Only set supervisor fields - no manager fields
         if (user.getSupervisor() != null) {
+            dto.setSupervisorId(user.getSupervisor().getId());
             dto.setSupervisorName(user.getSupervisor().getFullName());
         }
 
@@ -138,7 +139,7 @@ public class UserMapper {
                     ));
                     break;
 
-                case "supervisor": // Changed from "manager"
+                case "supervisor":
                     permissions.addAll(List.of(
                             "timesheet.create", "timesheet.view", "timesheet.edit",
                             "timesheet.approve", "employee.view"
