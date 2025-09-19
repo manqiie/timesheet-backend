@@ -1,4 +1,4 @@
-// src/main/java/com/goldtech/timesheet_backend/controller/TimesheetController.java
+// Updated TimesheetController.java - With new endpoints for history and available months
 package com.goldtech.timesheet_backend.controller;
 
 import com.goldtech.timesheet_backend.dto.timesheet.*;
@@ -25,6 +25,75 @@ public class TimesheetController {
 
     @Autowired
     private TimesheetService timesheetService;
+
+    /**
+     * Get available months for timesheet submission based on business rules
+     */
+    @GetMapping("/available-months")
+    public ResponseEntity<Map<String, Object>> getAvailableMonths(Authentication authentication) {
+        try {
+            User user = (User) authentication.getPrincipal();
+            logger.debug("Getting available months for user {}", user.getId());
+
+            List<AvailableMonthDto> availableMonths = timesheetService.getAvailableMonths(user.getId());
+
+            return ResponseEntity.ok(createSuccessResponse(availableMonths, "Available months retrieved successfully"));
+
+        } catch (Exception e) {
+            logger.error("Error getting available months", e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Failed to retrieve available months: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get timesheet history for current user
+     */
+    @GetMapping("/history")
+    public ResponseEntity<Map<String, Object>> getTimesheetHistory(Authentication authentication) {
+        try {
+            User user = (User) authentication.getPrincipal();
+            logger.debug("Getting timesheet history for user {}", user.getId());
+
+            List<TimesheetHistoryDto> history = timesheetService.getTimesheetHistory(user.getId());
+
+            return ResponseEntity.ok(createSuccessResponse(history, "Timesheet history retrieved successfully"));
+
+        } catch (Exception e) {
+            logger.error("Error getting timesheet history", e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Failed to retrieve timesheet history: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Check if timesheet can be submitted (for frontend validation)
+     */
+    @GetMapping("/{year}/{month}/can-submit")
+    public ResponseEntity<Map<String, Object>> canSubmitTimesheet(
+            @PathVariable Integer year,
+            @PathVariable Integer month,
+            Authentication authentication
+    ) {
+        try {
+            User user = (User) authentication.getPrincipal();
+
+            boolean canSubmit = timesheetService.canSubmitTimesheet(user.getId(), year, month);
+            boolean canResubmit = timesheetService.canResubmitTimesheet(user.getId(), year, month);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("canSubmit", canSubmit);
+            result.put("canResubmit", canResubmit);
+            result.put("canPerformAction", canSubmit || canResubmit);
+
+            return ResponseEntity.ok(createSuccessResponse(result, "Submission check completed"));
+
+        } catch (Exception e) {
+            logger.error("Error checking submission eligibility for {}/{}", year, month, e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("Failed to check submission eligibility: " + e.getMessage()));
+        }
+    }
 
     /**
      * Get timesheet for a specific month
@@ -121,6 +190,10 @@ public class TimesheetController {
 
             return ResponseEntity.ok(createSuccessResponse(null, "Day entry deleted successfully"));
 
+        } catch (IllegalArgumentException e) {
+            logger.warn("Validation error deleting day entry: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(createErrorResponse(e.getMessage()));
         } catch (Exception e) {
             logger.error("Error deleting day entry for date {}", date, e);
             return ResponseEntity.status(500)
