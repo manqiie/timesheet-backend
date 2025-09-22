@@ -1,4 +1,4 @@
-// src/main/java/com/goldtech/timesheet_backend/service/TimesheetApprovalService.java
+// Enhanced TimesheetApprovalService.java - Better integration with submission flow
 package com.goldtech.timesheet_backend.service;
 
 import com.goldtech.timesheet_backend.dto.timesheet.TimesheetResponseDto;
@@ -16,6 +16,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
+
 
 @Service
 @Transactional
@@ -33,13 +36,16 @@ public class TimesheetApprovalService {
     private TimesheetService timesheetService;
 
     /**
-     * Get pending timesheets for a supervisor
+     * Get pending timesheets for a supervisor - ENHANCED
      */
     public List<TimesheetResponseDto> getPendingTimesheets(Long supervisorId) {
         logger.debug("Getting pending timesheets for supervisor {}", supervisorId);
 
+        // Get all timesheets where this supervisor is the approver and status is submitted
         List<MonthlyTimesheet> pendingTimesheets = monthlyTimesheetRepository
-                .findPendingApprovalBySupervisor(supervisorId);
+                .findByApprovedByIdAndStatus(supervisorId, MonthlyTimesheet.TimesheetStatus.submitted);
+
+        logger.info("Found {} pending timesheets for supervisor {}", pendingTimesheets.size(), supervisorId);
 
         return pendingTimesheets.stream()
                 .map(this::convertToResponseDto)
@@ -47,7 +53,7 @@ public class TimesheetApprovalService {
     }
 
     /**
-     * Get all timesheets for approval by supervisor (pending, approved, rejected)
+     * Get all timesheets for approval by supervisor - ENHANCED
      */
     public List<TimesheetResponseDto> getTimesheetsForApproval(Long supervisorId, String statusFilter) {
         logger.debug("Getting timesheets for approval by supervisor {} with status {}", supervisorId, statusFilter);
@@ -55,22 +61,23 @@ public class TimesheetApprovalService {
         List<MonthlyTimesheet> timesheets;
 
         if ("all".equals(statusFilter)) {
-            // Get all submitted timesheets for supervisor's subordinates using efficient query
+            // Get all timesheets assigned to this supervisor (submitted, approved, rejected)
             List<MonthlyTimesheet.TimesheetStatus> statuses = List.of(
                     MonthlyTimesheet.TimesheetStatus.submitted,
-                    MonthlyTimesheet.TimesheetStatus.pending,
                     MonthlyTimesheet.TimesheetStatus.approved,
                     MonthlyTimesheet.TimesheetStatus.rejected
             );
-            timesheets = monthlyTimesheetRepository.findBySupervisorAndStatusIn(supervisorId, statuses);
+            timesheets = monthlyTimesheetRepository.findByApprovedByIdAndStatusIn(supervisorId, statuses);
         } else if ("pending".equals(statusFilter)) {
-            timesheets = monthlyTimesheetRepository.findPendingApprovalBySupervisor(supervisorId);
+            timesheets = monthlyTimesheetRepository.findByApprovedByIdAndStatus(
+                    supervisorId, MonthlyTimesheet.TimesheetStatus.submitted);
         } else {
-            // Filter by specific status using efficient query
+            // Filter by specific status
             MonthlyTimesheet.TimesheetStatus status = MonthlyTimesheet.TimesheetStatus.valueOf(statusFilter);
-            List<MonthlyTimesheet.TimesheetStatus> statusList = List.of(status);
-            timesheets = monthlyTimesheetRepository.findBySupervisorAndStatusIn(supervisorId, statusList);
+            timesheets = monthlyTimesheetRepository.findByApprovedByIdAndStatus(supervisorId, status);
         }
+
+        logger.info("Found {} timesheets for supervisor {} with status {}", timesheets.size(), supervisorId, statusFilter);
 
         return timesheets.stream()
                 .map(this::convertToResponseDto)
@@ -78,7 +85,7 @@ public class TimesheetApprovalService {
     }
 
     /**
-     * Process timesheet approval or rejection
+     * Process timesheet approval or rejection - ENHANCED
      */
     public TimesheetResponseDto processApproval(Long timesheetId, Long supervisorId, String decision, String comments) {
         logger.debug("Processing approval for timesheet {} by supervisor {}: {}", timesheetId, supervisorId, decision);
@@ -91,20 +98,13 @@ public class TimesheetApprovalService {
         MonthlyTimesheet timesheet = timesheetOpt.get();
 
         // Verify supervisor has authority to approve this timesheet
-        if (timesheet.getUser().getSupervisor() == null ||
-                !timesheet.getUser().getSupervisor().getId().equals(supervisorId)) {
+        if (timesheet.getApprovedBy() == null || !timesheet.getApprovedBy().getId().equals(supervisorId)) {
             throw new IllegalArgumentException("You are not authorized to approve this timesheet");
         }
 
         // Verify timesheet is in submittable state
-        if (timesheet.getStatus() != MonthlyTimesheet.TimesheetStatus.submitted &&
-                timesheet.getStatus() != MonthlyTimesheet.TimesheetStatus.pending) {
+        if (timesheet.getStatus() != MonthlyTimesheet.TimesheetStatus.submitted) {
             throw new IllegalArgumentException("Timesheet is not in a state that can be approved/rejected");
-        }
-
-        // Verify that the current supervisor is the one assigned to approve
-        if (!timesheet.getApprovedBy().getId().equals(supervisorId)) {
-            throw new IllegalArgumentException("You are not the assigned supervisor for this timesheet");
         }
 
         // Update timesheet status
@@ -117,20 +117,20 @@ public class TimesheetApprovalService {
         }
 
         // Set approval timestamp and comments
-        // Note: approved_by remains the same (was set during submission)
         timesheet.setApprovedAt(LocalDateTime.now());
         timesheet.setApprovalComments(comments);
 
         timesheet = monthlyTimesheetRepository.save(timesheet);
 
-        logger.info("Timesheet {} {} by supervisor {}", timesheetId, decision, supervisorId);
+        logger.info("Timesheet {} {} by supervisor {} for employee {}",
+                timesheetId, decision, supervisorId, timesheet.getUser().getFullName());
 
         // Return full timesheet details
         return timesheetService.getTimesheet(timesheet.getUser().getId(), timesheet.getYear(), timesheet.getMonth());
     }
 
     /**
-     * Get timesheet details for approval review
+     * Get timesheet details for approval review - ENHANCED
      */
     public TimesheetResponseDto getTimesheetForApproval(Long timesheetId, Long supervisorId) {
         logger.debug("Getting timesheet {} for approval by supervisor {}", timesheetId, supervisorId);
@@ -143,8 +143,7 @@ public class TimesheetApprovalService {
         MonthlyTimesheet timesheet = timesheetOpt.get();
 
         // Verify supervisor has authority to view this timesheet
-        if (timesheet.getUser().getSupervisor() == null ||
-                !timesheet.getUser().getSupervisor().getId().equals(supervisorId)) {
+        if (timesheet.getApprovedBy() == null || !timesheet.getApprovedBy().getId().equals(supervisorId)) {
             throw new IllegalArgumentException("You are not authorized to view this timesheet");
         }
 
@@ -153,7 +152,29 @@ public class TimesheetApprovalService {
     }
 
     /**
-     * Convert MonthlyTimesheet entity to TimesheetResponseDto for listing
+     * Get summary of pending approvals for supervisor dashboard
+     */
+    public Map<String, Object> getApprovalSummary(Long supervisorId) {
+        Map<String, Object> summary = new HashMap<>();
+
+        long pendingCount = monthlyTimesheetRepository.countByApprovedByIdAndStatus(
+                supervisorId, MonthlyTimesheet.TimesheetStatus.submitted);
+
+        long approvedThisMonth = monthlyTimesheetRepository.countByApprovedByIdAndStatusAndApprovedAtBetween(
+                supervisorId,
+                MonthlyTimesheet.TimesheetStatus.approved,
+                LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0),
+                LocalDateTime.now()
+        );
+
+        summary.put("pendingCount", pendingCount);
+        summary.put("approvedThisMonth", approvedThisMonth);
+
+        return summary;
+    }
+
+    /**
+     * Convert MonthlyTimesheet entity to TimesheetResponseDto for listing - ENHANCED
      */
     private TimesheetResponseDto convertToResponseDto(MonthlyTimesheet timesheet) {
         TimesheetResponseDto dto = new TimesheetResponseDto();
