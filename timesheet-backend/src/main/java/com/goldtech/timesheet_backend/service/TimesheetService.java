@@ -405,10 +405,39 @@ public class TimesheetService {
         return savedEntries.stream().map(this::convertToDto).collect(Collectors.toList());
     }
 
-    // [Include all other existing methods like getWorkingHoursPresets, saveWorkingHoursPreset, etc.]
-    // ... (keeping all existing helper methods unchanged)
+    /**
+     * Validate working hours with overnight shift support
+     */
+    private void validateWorkingHours(LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            throw new IllegalArgumentException("Both start and end times are required for working hours");
+        }
 
-    // New helper methods
+        // Calculate duration with overnight support
+        LocalDateTime startDateTime = LocalDateTime.of(LocalDate.of(2000, 1, 1), startTime);
+        LocalDateTime endDateTime = LocalDateTime.of(LocalDate.of(2000, 1, 1), endTime);
+
+        // If end time is before or equal to start time, assume next day (overnight shift)
+        if (endTime.isBefore(startTime) || endTime.equals(startTime)) {
+            endDateTime = endDateTime.plusDays(1);
+        }
+
+        long totalMinutes = java.time.Duration.between(startDateTime, endDateTime).toMinutes();
+
+        if (totalMinutes <= 0) {
+            throw new IllegalArgumentException("Invalid time range");
+        }
+
+        // Maximum 16 hours per shift
+        if (totalMinutes > 16 * 60) {
+            throw new IllegalArgumentException("Working hours cannot exceed 16 hours per shift");
+        }
+
+        // Minimum 30 minutes
+        if (totalMinutes < 30) {
+            throw new IllegalArgumentException("Working hours must be at least 30 minutes");
+        }
+    }
 
     /**
      * Convert MonthlyTimesheet to TimesheetHistoryDto
@@ -463,20 +492,29 @@ public class TimesheetService {
                 });
     }
 
+    /**
+     * Update the updateDayEntryFromRequest method to include validation
+     */
     private void updateDayEntryFromRequest(DayEntry dayEntry, SaveEntryRequestDto request) {
         // Set entry type
         dayEntry.setEntryType(DayEntry.EntryType.valueOf(request.getType()));
 
-        // Set working hours fields
+        // Set working hours fields with validation
         if (request.getStartTime() != null && !request.getStartTime().isEmpty()) {
-            dayEntry.setStartTime(LocalTime.parse(request.getStartTime()));
+            LocalTime startTime = LocalTime.parse(request.getStartTime());
+            dayEntry.setStartTime(startTime);
+
+            if (request.getEndTime() != null && !request.getEndTime().isEmpty()) {
+                LocalTime endTime = LocalTime.parse(request.getEndTime());
+                dayEntry.setEndTime(endTime);
+
+                // Validate working hours if both times are provided and it's a working hours entry
+                if (dayEntry.getEntryType() == DayEntry.EntryType.working_hours) {
+                    validateWorkingHours(startTime, endTime);
+                }
+            }
         } else {
             dayEntry.setStartTime(null);
-        }
-
-        if (request.getEndTime() != null && !request.getEndTime().isEmpty()) {
-            dayEntry.setEndTime(LocalTime.parse(request.getEndTime()));
-        } else {
             dayEntry.setEndTime(null);
         }
 
@@ -582,6 +620,9 @@ public class TimesheetService {
         return dto;
     }
 
+    /**
+     * Calculate statistics with support for overnight shifts
+     */
     private TimesheetStatsDto calculateStats(List<DayEntry> entries) {
         TimesheetStatsDto stats = new TimesheetStatsDto();
 
@@ -597,16 +638,28 @@ public class TimesheetService {
                 .count();
         stats.setLeaveDays((int) leaveDays);
 
-        // Calculate total hours for working days
+        // Calculate total hours for working days with overnight shift support
         double totalHours = entries.stream()
                 .filter(entry -> entry.getEntryType() == DayEntry.EntryType.working_hours)
                 .filter(entry -> entry.getStartTime() != null && entry.getEndTime() != null)
                 .mapToDouble(entry -> {
                     LocalTime start = entry.getStartTime();
                     LocalTime end = entry.getEndTime();
-                    return java.time.Duration.between(start, end).toMinutes() / 60.0;
+
+                    // Calculate duration with overnight shift support
+                    LocalDateTime startDateTime = LocalDateTime.of(LocalDate.of(2000, 1, 1), start);
+                    LocalDateTime endDateTime = LocalDateTime.of(LocalDate.of(2000, 1, 1), end);
+
+                    // If end time is before or equal to start time, assume next day (overnight shift)
+                    if (end.isBefore(start) || end.equals(start)) {
+                        endDateTime = endDateTime.plusDays(1);
+                    }
+
+                    long minutes = java.time.Duration.between(startDateTime, endDateTime).toMinutes();
+                    return minutes / 60.0;
                 })
                 .sum();
+
         stats.setTotalHours(totalHours);
 
         // Calculate leave breakdown
@@ -620,6 +673,7 @@ public class TimesheetService {
 
         return stats;
     }
+
 
     private String getMonthName(Integer month) {
         return LocalDate.of(2024, month, 1)

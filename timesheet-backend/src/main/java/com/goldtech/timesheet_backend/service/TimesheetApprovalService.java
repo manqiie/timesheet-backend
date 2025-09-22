@@ -1,9 +1,12 @@
-// Enhanced TimesheetApprovalService.java - Better integration with submission flow
+// Enhanced TimesheetApprovalService.java - Add statistics calculation
 package com.goldtech.timesheet_backend.service;
 
 import com.goldtech.timesheet_backend.dto.timesheet.TimesheetResponseDto;
+import com.goldtech.timesheet_backend.dto.timesheet.TimesheetStatsDto;
+import com.goldtech.timesheet_backend.entity.DayEntry;
 import com.goldtech.timesheet_backend.entity.MonthlyTimesheet;
 import com.goldtech.timesheet_backend.entity.User;
+import com.goldtech.timesheet_backend.repository.DayEntryRepository;
 import com.goldtech.timesheet_backend.repository.MonthlyTimesheetRepository;
 import com.goldtech.timesheet_backend.repository.UserRepository;
 import org.slf4j.Logger;
@@ -13,12 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.HashMap;
-
 
 @Service
 @Transactional
@@ -31,6 +34,9 @@ public class TimesheetApprovalService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private DayEntryRepository dayEntryRepository; // ADD THIS
 
     @Autowired
     private TimesheetService timesheetService;
@@ -48,7 +54,7 @@ public class TimesheetApprovalService {
         logger.info("Found {} pending timesheets for supervisor {}", pendingTimesheets.size(), supervisorId);
 
         return pendingTimesheets.stream()
-                .map(this::convertToResponseDto)
+                .map(this::convertToResponseDtoWithStats) // CHANGED: Use method with stats
                 .collect(Collectors.toList());
     }
 
@@ -80,7 +86,7 @@ public class TimesheetApprovalService {
         logger.info("Found {} timesheets for supervisor {} with status {}", timesheets.size(), supervisorId, statusFilter);
 
         return timesheets.stream()
-                .map(this::convertToResponseDto)
+                .map(this::convertToResponseDtoWithStats) // CHANGED: Use method with stats
                 .collect(Collectors.toList());
     }
 
@@ -174,9 +180,9 @@ public class TimesheetApprovalService {
     }
 
     /**
-     * Convert MonthlyTimesheet entity to TimesheetResponseDto for listing - ENHANCED
+     * NEW METHOD: Convert MonthlyTimesheet entity to TimesheetResponseDto with statistics
      */
-    private TimesheetResponseDto convertToResponseDto(MonthlyTimesheet timesheet) {
+    private TimesheetResponseDto convertToResponseDtoWithStats(MonthlyTimesheet timesheet) {
         TimesheetResponseDto dto = new TimesheetResponseDto();
         dto.setTimesheetId(timesheet.getId());
         dto.setYear(timesheet.getYear());
@@ -201,7 +207,56 @@ public class TimesheetApprovalService {
         dto.setEmployeePosition(employee.getPosition());
         dto.setEmployeeProjectSite(employee.getProjectSite());
 
+        // CALCULATE AND ADD STATISTICS
+        List<DayEntry> entries = dayEntryRepository.findByUserIdAndYearAndMonth(
+                employee.getId(), timesheet.getYear(), timesheet.getMonth());
+
+        TimesheetStatsDto stats = calculateStats(entries);
+        dto.setStats(stats);
+
         return dto;
+    }
+
+    /**
+     * Calculate statistics from day entries
+     */
+    private TimesheetStatsDto calculateStats(List<DayEntry> entries) {
+        TimesheetStatsDto stats = new TimesheetStatsDto();
+
+        stats.setTotalEntries(entries.size());
+
+        long workingDays = entries.stream()
+                .filter(entry -> entry.getEntryType() == DayEntry.EntryType.working_hours)
+                .count();
+        stats.setWorkingDays((int) workingDays);
+
+        long leaveDays = entries.stream()
+                .filter(entry -> entry.getEntryType() != DayEntry.EntryType.working_hours)
+                .count();
+        stats.setLeaveDays((int) leaveDays);
+
+        // Calculate total hours for working days
+        double totalHours = entries.stream()
+                .filter(entry -> entry.getEntryType() == DayEntry.EntryType.working_hours)
+                .filter(entry -> entry.getStartTime() != null && entry.getEndTime() != null)
+                .mapToDouble(entry -> {
+                    LocalTime start = entry.getStartTime();
+                    LocalTime end = entry.getEndTime();
+                    return java.time.Duration.between(start, end).toMinutes() / 60.0;
+                })
+                .sum();
+        stats.setTotalHours(totalHours);
+
+        // Calculate leave breakdown
+        Map<String, Integer> leaveBreakdown = entries.stream()
+                .filter(entry -> entry.getEntryType() != DayEntry.EntryType.working_hours)
+                .collect(Collectors.groupingBy(
+                        entry -> entry.getEntryType().toString(),
+                        Collectors.collectingAndThen(Collectors.counting(), Math::toIntExact)
+                ));
+        stats.setLeaveBreakdown(leaveBreakdown);
+
+        return stats;
     }
 
     private String getMonthName(Integer month) {
