@@ -35,10 +35,6 @@ public class TimesheetValidationService {
             throw new IllegalArgumentException("Invalid time range");
         }
 
-        // Maximum 16 hours per shift
-        if (totalMinutes > 16 * 60) {
-            throw new IllegalArgumentException("Working hours cannot exceed 16 hours per shift");
-        }
 
         // Minimum 30 minutes
         if (totalMinutes < 30) {
