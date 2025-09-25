@@ -270,13 +270,37 @@ public class TimesheetService {
     }
 
     /**
-     * Delete a day entry
+     * Delete a day entry - UPDATED to handle properly
      */
     public void deleteDayEntry(Long userId, String date) {
         LocalDate entryDate = LocalDate.parse(date);
         validateTimesheetCanBeEdited(userId, entryDate.getYear(), entryDate.getMonthValue());
 
-        entryService.deleteDayEntry(userId, entryDate);
+        Optional<DayEntry> entryOptional = dayEntryRepository.findByUserIdAndDate(userId, entryDate);
+
+        if (entryOptional.isPresent()) {
+            DayEntry entry = entryOptional.get();
+
+            // Delete associated documents first
+            entryService.deleteExistingDocuments(entry);
+
+            // Set entry type to no_entry instead of deleting
+            entry.setEntryType(DayEntry.EntryType.no_entry);
+            entry.setStartTime(null);
+            entry.setEndTime(null);
+            entry.setHalfDayPeriod(null);
+            entry.setDateEarned(null);
+            entry.setPrimaryDocumentDay(null);
+            entry.setIsPrimaryDocument(false);
+            entry.setNotes("Entry deleted by user");
+
+            dayEntryRepository.save(entry);
+
+            logger.info("Day entry marked as deleted (no_entry) for user {} on {}", userId, date);
+        } else {
+            logger.info("No entry found to delete for user {} on {}", userId, date);
+        }
+
         updateMonthlyTimesheetToDraft(userId, entryDate.getYear(), entryDate.getMonthValue());
     }
 
