@@ -1,4 +1,4 @@
-// TimesheetBusinessRulesService.java - Extract business logic
+// Updated TimesheetBusinessRulesService.java - With versioning support
 package com.goldtech.timesheet_backend.service;
 
 import com.goldtech.timesheet_backend.entity.MonthlyTimesheet;
@@ -47,30 +47,63 @@ public class TimesheetBusinessRulesService {
     }
 
     /**
-     * Check if a timesheet can be resubmitted (after rejection)
+     * Check if a timesheet can be resubmitted (after rejection) - UPDATED for versioning
      */
     public boolean canResubmitTimesheet(Long userId, Integer year, Integer month) {
-        Optional<MonthlyTimesheet> timesheetOpt = monthlyTimesheetRepository
-                .findByUserIdAndYearAndMonth(userId, year, month);
+        // Must be within submission window first
+        if (!canSubmitTimesheet(userId, year, month)) {
+            return false;
+        }
 
-        return timesheetOpt.isPresent() &&
-                timesheetOpt.get().getStatus() == MonthlyTimesheet.TimesheetStatus.rejected;
+        // Check if current version is rejected
+        Optional<MonthlyTimesheet> currentTimesheetOpt = monthlyTimesheetRepository
+                .findCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
+
+        return currentTimesheetOpt.isPresent() &&
+                currentTimesheetOpt.get().getStatus() == MonthlyTimesheet.TimesheetStatus.rejected;
     }
 
     /**
-     * Check if timesheet can be edited (not submitted/approved)
+     * Check if timesheet can be edited (not submitted/approved) - UPDATED for versioning
      */
     public boolean canEditTimesheet(Long userId, Integer year, Integer month) {
-        Optional<MonthlyTimesheet> monthlyTimesheet = monthlyTimesheetRepository
-                .findByUserIdAndYearAndMonth(userId, year, month);
+        Optional<MonthlyTimesheet> currentTimesheetOpt = monthlyTimesheetRepository
+                .findCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
 
-        if (monthlyTimesheet.isEmpty()) {
+        if (currentTimesheetOpt.isEmpty()) {
             return true; // No timesheet exists, can create entries
         }
 
-        MonthlyTimesheet.TimesheetStatus status = monthlyTimesheet.get().getStatus();
+        MonthlyTimesheet.TimesheetStatus status = currentTimesheetOpt.get().getStatus();
         return status == MonthlyTimesheet.TimesheetStatus.draft ||
                 status == MonthlyTimesheet.TimesheetStatus.rejected;
+    }
+
+    /**
+     * Check if a timesheet can be viewed (exists and user has access)
+     */
+    public boolean canViewTimesheet(Long userId, Integer year, Integer month) {
+        return monthlyTimesheetRepository
+                .existsCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
+    }
+
+    /**
+     * Check if supervisor can approve timesheet - UPDATED for versioning
+     */
+    public boolean canApproveTimesheet(Long timesheetId, Long supervisorId) {
+        Optional<MonthlyTimesheet> timesheetOpt = monthlyTimesheetRepository.findById(timesheetId);
+
+        if (timesheetOpt.isEmpty()) {
+            return false;
+        }
+
+        MonthlyTimesheet timesheet = timesheetOpt.get();
+
+        // Must be current version, submitted status, and assigned to this supervisor
+        return timesheet.getIsCurrentVersion() &&
+                timesheet.getStatus() == MonthlyTimesheet.TimesheetStatus.submitted &&
+                timesheet.getApprovedBy() != null &&
+                timesheet.getApprovedBy().getId().equals(supervisorId);
     }
 
     /**
@@ -97,5 +130,41 @@ public class TimesheetBusinessRulesService {
         }
 
         return "This timesheet cannot be submitted at this time";
+    }
+
+    /**
+     * Get timesheet version information for display purposes
+     */
+    public String getTimesheetVersionInfo(Long userId, Integer year, Integer month) {
+        Optional<MonthlyTimesheet> currentTimesheetOpt = monthlyTimesheetRepository
+                .findCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
+
+        if (currentTimesheetOpt.isEmpty()) {
+            return "No timesheet found";
+        }
+
+        MonthlyTimesheet currentTimesheet = currentTimesheetOpt.get();
+
+        if (currentTimesheet.getVersion() == 1) {
+            return "Original submission";
+        } else {
+            return String.format("Version %d (Resubmission)", currentTimesheet.getVersion());
+        }
+    }
+
+    /**
+     * Check if timesheet has multiple versions (was resubmitted)
+     */
+    public boolean hasMultipleVersions(Long userId, Integer year, Integer month) {
+        Integer maxVersion = monthlyTimesheetRepository.findLatestVersionNumber(userId, year, month);
+        return maxVersion != null && maxVersion > 1;
+    }
+
+    /**
+     * Get count of versions for a timesheet
+     */
+    public int getVersionCount(Long userId, Integer year, Integer month) {
+        Integer maxVersion = monthlyTimesheetRepository.findLatestVersionNumber(userId, year, month);
+        return maxVersion != null ? maxVersion : 0;
     }
 }

@@ -1,5 +1,4 @@
-// 4. Monthly Timesheet Entity
-// src/main/java/com/goldtech/timesheet_backend/entity/MonthlyTimesheet.java
+// Updated MonthlyTimesheet.java - With versioning support
 package com.goldtech.timesheet_backend.entity;
 
 import jakarta.persistence.*;
@@ -25,6 +24,16 @@ public class MonthlyTimesheet {
 
     @Column(name = "month", nullable = false)
     private Integer month;
+
+    // ========== VERSIONING FIELDS ==========
+    @Column(name = "version", nullable = false)
+    private Integer version = 1;
+
+    @Column(name = "previous_version_id")
+    private Long previousVersionId;
+
+    @Column(name = "is_current_version", nullable = false)
+    private Boolean isCurrentVersion = true;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -77,6 +86,16 @@ public class MonthlyTimesheet {
 
     public Integer getMonth() { return month; }
     public void setMonth(Integer month) { this.month = month; }
+
+    // ========== VERSIONING GETTERS/SETTERS ==========
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+
+    public Long getPreviousVersionId() { return previousVersionId; }
+    public void setPreviousVersionId(Long previousVersionId) { this.previousVersionId = previousVersionId; }
+
+    public Boolean getIsCurrentVersion() { return isCurrentVersion; }
+    public void setIsCurrentVersion(Boolean isCurrentVersion) { this.isCurrentVersion = isCurrentVersion; }
 
     public TimesheetStatus getStatus() { return status; }
     public void setStatus(TimesheetStatus status) { this.status = status; }

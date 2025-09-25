@@ -1,4 +1,4 @@
-// Enhanced TimesheetApprovalService.java - Add statistics calculation
+// Updated TimesheetApprovalService.java - With versioning support
 package com.goldtech.timesheet_backend.service;
 
 import com.goldtech.timesheet_backend.dto.timesheet.TimesheetResponseDto;
@@ -36,30 +36,33 @@ public class TimesheetApprovalService {
     private UserRepository userRepository;
 
     @Autowired
-    private DayEntryRepository dayEntryRepository; // ADD THIS
+    private DayEntryRepository dayEntryRepository;
 
     @Autowired
     private TimesheetService timesheetService;
 
+    @Autowired
+    private TimesheetBusinessRulesService businessRulesService;
+
     /**
-     * Get pending timesheets for a supervisor - ENHANCED
+     * Get pending timesheets for a supervisor - UPDATED for versioning (only current versions)
      */
     public List<TimesheetResponseDto> getPendingTimesheets(Long supervisorId) {
         logger.debug("Getting pending timesheets for supervisor {}", supervisorId);
 
-        // Get all timesheets where this supervisor is the approver and status is submitted
+        // Get current version timesheets where this supervisor is the approver and status is submitted
         List<MonthlyTimesheet> pendingTimesheets = monthlyTimesheetRepository
-                .findByApprovedByIdAndStatus(supervisorId, MonthlyTimesheet.TimesheetStatus.submitted);
+                .findCurrentVersionsByApprovedByIdAndStatus(supervisorId, MonthlyTimesheet.TimesheetStatus.submitted);
 
-        logger.info("Found {} pending timesheets for supervisor {}", pendingTimesheets.size(), supervisorId);
+        logger.info("Found {} pending timesheets (current versions) for supervisor {}", pendingTimesheets.size(), supervisorId);
 
         return pendingTimesheets.stream()
-                .map(this::convertToResponseDtoWithStats) // CHANGED: Use method with stats
+                .map(this::convertToResponseDtoWithStats)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Get all timesheets for approval by supervisor - ENHANCED
+     * Get all timesheets for approval by supervisor - UPDATED with option to include all versions
      */
     public List<TimesheetResponseDto> getTimesheetsForApproval(Long supervisorId, String statusFilter) {
         logger.debug("Getting timesheets for approval by supervisor {} with status {}", supervisorId, statusFilter);
@@ -67,31 +70,36 @@ public class TimesheetApprovalService {
         List<MonthlyTimesheet> timesheets;
 
         if ("all".equals(statusFilter)) {
-            // Get all timesheets assigned to this supervisor (submitted, approved, rejected)
+            // Get ALL VERSIONS of timesheets assigned to this supervisor for complete history
             List<MonthlyTimesheet.TimesheetStatus> statuses = List.of(
                     MonthlyTimesheet.TimesheetStatus.submitted,
                     MonthlyTimesheet.TimesheetStatus.approved,
                     MonthlyTimesheet.TimesheetStatus.rejected
             );
-            timesheets = monthlyTimesheetRepository.findByApprovedByIdAndStatusIn(supervisorId, statuses);
+            timesheets = monthlyTimesheetRepository.findAllVersionsByApprovedByIdAndStatusIn(supervisorId, statuses);
+            logger.info("Found {} timesheets (ALL VERSIONS) for supervisor {} with status {}",
+                    timesheets.size(), supervisorId, statusFilter);
         } else if ("pending".equals(statusFilter)) {
-            timesheets = monthlyTimesheetRepository.findByApprovedByIdAndStatus(
+            // For pending, only get current versions
+            timesheets = monthlyTimesheetRepository.findCurrentVersionsByApprovedByIdAndStatus(
                     supervisorId, MonthlyTimesheet.TimesheetStatus.submitted);
+            logger.info("Found {} pending timesheets (current versions) for supervisor {}",
+                    timesheets.size(), supervisorId);
         } else {
-            // Filter by specific status
+            // For specific status, get current versions only
             MonthlyTimesheet.TimesheetStatus status = MonthlyTimesheet.TimesheetStatus.valueOf(statusFilter);
-            timesheets = monthlyTimesheetRepository.findByApprovedByIdAndStatus(supervisorId, status);
+            timesheets = monthlyTimesheetRepository.findCurrentVersionsByApprovedByIdAndStatus(supervisorId, status);
+            logger.info("Found {} timesheets (current versions) for supervisor {} with status {}",
+                    timesheets.size(), supervisorId, statusFilter);
         }
 
-        logger.info("Found {} timesheets for supervisor {} with status {}", timesheets.size(), supervisorId, statusFilter);
-
         return timesheets.stream()
-                .map(this::convertToResponseDtoWithStats) // CHANGED: Use method with stats
+                .map(this::convertToResponseDtoWithStats)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Process timesheet approval or rejection - ENHANCED
+     * Process timesheet approval or rejection - UPDATED for versioning
      */
     public TimesheetResponseDto processApproval(Long timesheetId, Long supervisorId, String decision, String comments) {
         logger.debug("Processing approval for timesheet {} by supervisor {}: {}", timesheetId, supervisorId, decision);
@@ -103,14 +111,9 @@ public class TimesheetApprovalService {
 
         MonthlyTimesheet timesheet = timesheetOpt.get();
 
-        // Verify supervisor has authority to approve this timesheet
-        if (timesheet.getApprovedBy() == null || !timesheet.getApprovedBy().getId().equals(supervisorId)) {
-            throw new IllegalArgumentException("You are not authorized to approve this timesheet");
-        }
-
-        // Verify timesheet is in submittable state
-        if (timesheet.getStatus() != MonthlyTimesheet.TimesheetStatus.submitted) {
-            throw new IllegalArgumentException("Timesheet is not in a state that can be approved/rejected");
+        // Verify supervisor has authority using business rules
+        if (!businessRulesService.canApproveTimesheet(timesheetId, supervisorId)) {
+            throw new IllegalArgumentException("You are not authorized to approve this timesheet or it's not in a valid state");
         }
 
         // Update timesheet status
@@ -128,15 +131,15 @@ public class TimesheetApprovalService {
 
         timesheet = monthlyTimesheetRepository.save(timesheet);
 
-        logger.info("Timesheet {} {} by supervisor {} for employee {}",
-                timesheetId, decision, supervisorId, timesheet.getUser().getFullName());
+        logger.info("Timesheet {} {} by supervisor {} for employee {} (Version: {})",
+                timesheetId, decision, supervisorId, timesheet.getUser().getFullName(), timesheet.getVersion());
 
         // Return full timesheet details
         return timesheetService.getTimesheet(timesheet.getUser().getId(), timesheet.getYear(), timesheet.getMonth());
     }
 
     /**
-     * Get timesheet details for approval review - ENHANCED
+     * Get timesheet details for approval review - UPDATED for versioning
      */
     public TimesheetResponseDto getTimesheetForApproval(Long timesheetId, Long supervisorId) {
         logger.debug("Getting timesheet {} for approval by supervisor {}", timesheetId, supervisorId);
@@ -153,20 +156,35 @@ public class TimesheetApprovalService {
             throw new IllegalArgumentException("You are not authorized to view this timesheet");
         }
 
-        // Return full timesheet details
-        return timesheetService.getTimesheet(timesheet.getUser().getId(), timesheet.getYear(), timesheet.getMonth());
+        // Return full timesheet details - this will get the current version data
+        // but the specific timesheet version data will be from the requested ID
+        TimesheetResponseDto response = timesheetService.getTimesheet(
+                timesheet.getUser().getId(), timesheet.getYear(), timesheet.getMonth());
+
+        // Override with the specific version's metadata
+        response.setTimesheetId(timesheet.getId());
+        response.setStatus(timesheet.getStatus().toString());
+        response.setSubmittedAt(timesheet.getSubmittedAt());
+        response.setApprovedAt(timesheet.getApprovedAt());
+        response.setApprovalComments(timesheet.getApprovalComments());
+        response.setCreatedAt(timesheet.getCreatedAt());
+        response.setUpdatedAt(timesheet.getUpdatedAt());
+
+        return response;
     }
 
     /**
-     * Get summary of pending approvals for supervisor dashboard
+     * Get summary of pending approvals for supervisor dashboard - UPDATED for versioning
      */
     public Map<String, Object> getApprovalSummary(Long supervisorId) {
         Map<String, Object> summary = new HashMap<>();
 
-        long pendingCount = monthlyTimesheetRepository.countByApprovedByIdAndStatus(
+        // Count current version pending timesheets
+        long pendingCount = monthlyTimesheetRepository.countCurrentVersionsByApprovedByIdAndStatus(
                 supervisorId, MonthlyTimesheet.TimesheetStatus.submitted);
 
-        long approvedThisMonth = monthlyTimesheetRepository.countByApprovedByIdAndStatusAndApprovedAtBetween(
+        // Count current version approved this month
+        long approvedThisMonth = monthlyTimesheetRepository.countCurrentVersionsByApprovedByIdAndStatusAndApprovedAtBetween(
                 supervisorId,
                 MonthlyTimesheet.TimesheetStatus.approved,
                 LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0),
@@ -180,7 +198,21 @@ public class TimesheetApprovalService {
     }
 
     /**
-     * NEW METHOD: Convert MonthlyTimesheet entity to TimesheetResponseDto with statistics
+     * Get version history for a specific user's timesheet
+     */
+    public List<TimesheetResponseDto> getTimesheetVersionHistory(Long userId, Integer year, Integer month) {
+        logger.debug("Getting version history for user {} - {}/{}", userId, year, month);
+
+        List<MonthlyTimesheet> versions = monthlyTimesheetRepository
+                .getAllVersionsByUserIdAndYearAndMonth(userId, year, month);
+
+        return versions.stream()
+                .map(this::convertToResponseDtoWithStats)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Convert MonthlyTimesheet entity to TimesheetResponseDto with statistics and version info
      */
     private TimesheetResponseDto convertToResponseDtoWithStats(MonthlyTimesheet timesheet) {
         TimesheetResponseDto dto = new TimesheetResponseDto();
@@ -207,7 +239,7 @@ public class TimesheetApprovalService {
         dto.setEmployeePosition(employee.getPosition());
         dto.setEmployeeProjectSite(employee.getProjectSite());
 
-        // CALCULATE AND ADD STATISTICS
+        // Calculate statistics from day entries
         List<DayEntry> entries = dayEntryRepository.findByUserIdAndYearAndMonth(
                 employee.getId(), timesheet.getYear(), timesheet.getMonth());
 
@@ -218,7 +250,7 @@ public class TimesheetApprovalService {
     }
 
     /**
-     * Calculate statistics from day entries
+     * Calculate statistics from day entries with overnight shift support
      */
     private TimesheetStatsDto calculateStats(List<DayEntry> entries) {
         TimesheetStatsDto stats = new TimesheetStatsDto();
@@ -235,14 +267,24 @@ public class TimesheetApprovalService {
                 .count();
         stats.setLeaveDays((int) leaveDays);
 
-        // Calculate total hours for working days
+        // Calculate total hours for working days with overnight shift support
         double totalHours = entries.stream()
                 .filter(entry -> entry.getEntryType() == DayEntry.EntryType.working_hours)
                 .filter(entry -> entry.getStartTime() != null && entry.getEndTime() != null)
                 .mapToDouble(entry -> {
                     LocalTime start = entry.getStartTime();
                     LocalTime end = entry.getEndTime();
-                    return java.time.Duration.between(start, end).toMinutes() / 60.0;
+
+                    // Support overnight shifts
+                    LocalDateTime startDateTime = LocalDateTime.of(LocalDateTime.now().toLocalDate(), start);
+                    LocalDateTime endDateTime = LocalDateTime.of(LocalDateTime.now().toLocalDate(), end);
+
+                    // If end time is before or equal to start time, assume next day
+                    if (end.isBefore(start) || end.equals(start)) {
+                        endDateTime = endDateTime.plusDays(1);
+                    }
+
+                    return java.time.Duration.between(startDateTime, endDateTime).toMinutes() / 60.0;
                 })
                 .sum();
         stats.setTotalHours(totalHours);

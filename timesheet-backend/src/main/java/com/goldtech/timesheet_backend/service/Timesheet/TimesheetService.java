@@ -1,4 +1,4 @@
-// Complete Refactored TimesheetService.java - Works with all new services
+// Updated TimesheetService.java - Submit method with versioning support
 package com.goldtech.timesheet_backend.service;
 
 import com.goldtech.timesheet_backend.dto.timesheet.*;
@@ -74,12 +74,12 @@ public class TimesheetService {
     }
 
     /**
-     * Get timesheet data for a specific month
+     * Get timesheet data for a specific month - UPDATED to get current version
      */
     public TimesheetResponseDto getTimesheet(Long userId, Integer year, Integer month) {
         logger.debug("Getting timesheet for user {} - {}/{}", userId, year, month);
 
-        MonthlyTimesheet monthlyTimesheet = getOrCreateMonthlyTimesheet(userId, year, month);
+        MonthlyTimesheet monthlyTimesheet = getOrCreateCurrentMonthlyTimesheet(userId, year, month);
         List<DayEntry> dayEntries = dayEntryRepository.findByUserIdAndYearAndMonth(userId, year, month);
 
         return timesheetMapper.buildTimesheetResponse(monthlyTimesheet, dayEntries);
@@ -176,14 +176,10 @@ public class TimesheetService {
     }
 
     /**
-     * Submit timesheet for approval
+     * Submit timesheet for approval - UPDATED WITH VERSIONING SUPPORT
      */
     public TimesheetResponseDto submitTimesheet(Long userId, Integer year, Integer month) {
         logger.debug("Submitting timesheet for user {} - {}/{}", userId, year, month);
-
-        MonthlyTimesheet monthlyTimesheet = monthlyTimesheetRepository
-                .findByUserIdAndYearAndMonth(userId, year, month)
-                .orElseThrow(() -> new IllegalArgumentException("Timesheet not found"));
 
         // Validate submission rules
         boolean canSubmit = businessRulesService.canSubmitTimesheet(userId, year, month);
@@ -204,18 +200,71 @@ public class TimesheetService {
             throw new IllegalArgumentException("Cannot submit timesheet: No supervisor assigned");
         }
 
-        // Update timesheet status
-        monthlyTimesheet.setStatus(MonthlyTimesheet.TimesheetStatus.submitted);
-        monthlyTimesheet.setSubmittedAt(LocalDateTime.now());
-        monthlyTimesheet.setApprovedBy(employee.getSupervisor());
-        monthlyTimesheet.setApprovedAt(null);
-        monthlyTimesheet.setApprovalComments(null);
+        MonthlyTimesheet newTimesheet;
 
-        monthlyTimesheetRepository.save(monthlyTimesheet);
+        if (canResubmit) {
+            // RESUBMISSION: Create new version, preserve rejected version
+            Optional<MonthlyTimesheet> currentTimesheetOpt = monthlyTimesheetRepository
+                    .findCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
 
-        logger.info("Timesheet {} for user {} - {}/{}. Assigned to supervisor: {}",
-                canResubmit ? "resubmitted" : "submitted", userId, year, month,
-                employee.getSupervisor().getFullName());
+            if (currentTimesheetOpt.isEmpty()) {
+                throw new IllegalArgumentException("Current timesheet not found for resubmission");
+            }
+
+            MonthlyTimesheet currentTimesheet = currentTimesheetOpt.get();
+
+            if (currentTimesheet.getStatus() != MonthlyTimesheet.TimesheetStatus.rejected) {
+                throw new IllegalArgumentException("Can only resubmit rejected timesheets");
+            }
+
+            // Mark current version as no longer current
+            currentTimesheet.setIsCurrentVersion(false);
+            monthlyTimesheetRepository.save(currentTimesheet);
+
+            // Create new version
+            newTimesheet = new MonthlyTimesheet();
+            newTimesheet.setUser(employee);
+            newTimesheet.setYear(year);
+            newTimesheet.setMonth(month);
+            newTimesheet.setVersion(currentTimesheet.getVersion() + 1);
+            newTimesheet.setPreviousVersionId(currentTimesheet.getId());
+            newTimesheet.setIsCurrentVersion(true);
+            newTimesheet.setStatus(MonthlyTimesheet.TimesheetStatus.submitted);
+            newTimesheet.setSubmittedAt(LocalDateTime.now());
+            newTimesheet.setApprovedBy(employee.getSupervisor());
+            newTimesheet.setApprovedAt(null);
+            newTimesheet.setApprovalComments(null);
+
+            logger.info("Timesheet resubmitted for user {} - {}/{}. New version: {}. Previous rejected version preserved: {}",
+                    userId, year, month, newTimesheet.getVersion(), currentTimesheet.getId());
+
+        } else {
+            // FIRST SUBMISSION: Update existing draft or create new
+            Optional<MonthlyTimesheet> existingTimesheetOpt = monthlyTimesheetRepository
+                    .findCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
+
+            if (existingTimesheetOpt.isPresent()) {
+                newTimesheet = existingTimesheetOpt.get();
+            } else {
+                newTimesheet = new MonthlyTimesheet();
+                newTimesheet.setUser(employee);
+                newTimesheet.setYear(year);
+                newTimesheet.setMonth(month);
+                newTimesheet.setVersion(1);
+                newTimesheet.setPreviousVersionId(null);
+                newTimesheet.setIsCurrentVersion(true);
+            }
+
+            newTimesheet.setStatus(MonthlyTimesheet.TimesheetStatus.submitted);
+            newTimesheet.setSubmittedAt(LocalDateTime.now());
+            newTimesheet.setApprovedBy(employee.getSupervisor());
+            newTimesheet.setApprovedAt(null);
+            newTimesheet.setApprovalComments(null);
+
+            logger.info("Timesheet submitted for user {} - {}/{} (first submission)", userId, year, month);
+        }
+
+        newTimesheet = monthlyTimesheetRepository.save(newTimesheet);
 
         return getTimesheet(userId, year, month);
     }
@@ -276,7 +325,7 @@ public class TimesheetService {
         logger.info("Working hours preset deleted for user {}: {}", userId, presetId);
     }
 
-    // ========== PRIVATE HELPER METHODS ==========
+    // ========== PRIVATE HELPER METHODS - UPDATED FOR VERSIONING ==========
 
     private User getUserById(Long userId) {
         return userRepository.findById(userId)
@@ -293,21 +342,36 @@ public class TimesheetService {
         }
     }
 
-    private MonthlyTimesheet getOrCreateMonthlyTimesheet(Long userId, Integer year, Integer month) {
-        return monthlyTimesheetRepository.findByUserIdAndYearAndMonth(userId, year, month)
-                .orElseGet(() -> {
-                    User user = getUserById(userId);
-                    MonthlyTimesheet newTimesheet = new MonthlyTimesheet();
-                    newTimesheet.setUser(user);
-                    newTimesheet.setYear(year);
-                    newTimesheet.setMonth(month);
-                    newTimesheet.setStatus(MonthlyTimesheet.TimesheetStatus.draft);
-                    return monthlyTimesheetRepository.save(newTimesheet);
-                });
+    /**
+     * Get or create current version of monthly timesheet
+     */
+    private MonthlyTimesheet getOrCreateCurrentMonthlyTimesheet(Long userId, Integer year, Integer month) {
+        Optional<MonthlyTimesheet> currentTimesheet = monthlyTimesheetRepository
+                .findCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
+
+        if (currentTimesheet.isPresent()) {
+            return currentTimesheet.get();
+        }
+
+        // Create new timesheet
+        User user = getUserById(userId);
+        MonthlyTimesheet newTimesheet = new MonthlyTimesheet();
+        newTimesheet.setUser(user);
+        newTimesheet.setYear(year);
+        newTimesheet.setMonth(month);
+        newTimesheet.setVersion(1);
+        newTimesheet.setPreviousVersionId(null);
+        newTimesheet.setIsCurrentVersion(true);
+        newTimesheet.setStatus(MonthlyTimesheet.TimesheetStatus.draft);
+
+        return monthlyTimesheetRepository.save(newTimesheet);
     }
 
+    /**
+     * Update monthly timesheet to draft status (only current version)
+     */
     private void updateMonthlyTimesheetToDraft(Long userId, Integer year, Integer month) {
-        monthlyTimesheetRepository.findByUserIdAndYearAndMonth(userId, year, month)
+        monthlyTimesheetRepository.findCurrentVersionByUserIdAndYearAndMonth(userId, year, month)
                 .ifPresent(timesheet -> {
                     if (timesheet.getStatus() == MonthlyTimesheet.TimesheetStatus.submitted ||
                             timesheet.getStatus() == MonthlyTimesheet.TimesheetStatus.pending) {

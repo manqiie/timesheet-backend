@@ -1,4 +1,4 @@
-// Enhanced MonthlyTimesheetRepository.java - Added missing methods for approval flow
+// Complete MonthlyTimesheetRepository.java - Clean version with versioning support
 package com.goldtech.timesheet_backend.repository;
 
 import com.goldtech.timesheet_backend.entity.MonthlyTimesheet;
@@ -14,72 +14,210 @@ import java.util.Optional;
 @Repository
 public interface MonthlyTimesheetRepository extends JpaRepository<MonthlyTimesheet, Long> {
 
-    // Find by user, year, and month
-    Optional<MonthlyTimesheet> findByUserIdAndYearAndMonth(Long userId, Integer year, Integer month);
+    // ========== NEW VERSIONING-AWARE METHODS (PRIMARY) ==========
 
-    // Find timesheets by user
-    List<MonthlyTimesheet> findByUserIdOrderByYearDescMonthDesc(Long userId);
+    // Find CURRENT VERSION by user, year, and month
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.user.id = :userId " +
+            "AND mt.year = :year AND mt.month = :month AND mt.isCurrentVersion = true")
+    Optional<MonthlyTimesheet> findCurrentVersionByUserIdAndYearAndMonth(@Param("userId") Long userId,
+                                                                         @Param("year") Integer year,
+                                                                         @Param("month") Integer month);
 
-    // Find timesheets by status
-    List<MonthlyTimesheet> findByStatus(MonthlyTimesheet.TimesheetStatus status);
+    // Find ALL VERSIONS by user, year, and month (for history)
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.user.id = :userId " +
+            "AND mt.year = :year AND mt.month = :month ORDER BY mt.version DESC")
+    List<MonthlyTimesheet> getAllVersionsByUserIdAndYearAndMonth(@Param("userId") Long userId,
+                                                                 @Param("year") Integer year,
+                                                                 @Param("month") Integer month);
 
-    // Find timesheets by status with ordering
-    List<MonthlyTimesheet> findByStatusOrderBySubmittedAtAsc(MonthlyTimesheet.TimesheetStatus status);
+    // Alias method for consistency
+    default List<MonthlyTimesheet> findAllVersionsByUserIdAndYearAndMonth(Long userId, Integer year, Integer month) {
+        return getAllVersionsByUserIdAndYearAndMonth(userId, year, month);
+    }
 
-    // NEW: Find timesheets assigned to specific supervisor (approver) by status
-    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId AND mt.status = :status ORDER BY mt.submittedAt ASC")
-    List<MonthlyTimesheet> findByApprovedByIdAndStatus(@Param("supervisorId") Long supervisorId,
-                                                       @Param("status") MonthlyTimesheet.TimesheetStatus status);
+    // Find CURRENT VERSIONS by user (for general timesheet lists)
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.user.id = :userId " +
+            "AND mt.isCurrentVersion = true ORDER BY mt.year DESC, mt.month DESC")
+    List<MonthlyTimesheet> findCurrentVersionsByUserId(@Param("userId") Long userId);
 
-    // NEW: Find timesheets assigned to specific supervisor with multiple statuses
-    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId AND mt.status IN :statuses ORDER BY mt.submittedAt DESC")
-    List<MonthlyTimesheet> findByApprovedByIdAndStatusIn(@Param("supervisorId") Long supervisorId,
-                                                         @Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
+    // ========== SUPERVISOR/APPROVAL METHODS (VERSIONING-AWARE) ==========
 
-    // NEW: Count timesheets by supervisor and status
-    @Query("SELECT COUNT(mt) FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId AND mt.status = :status")
-    long countByApprovedByIdAndStatus(@Param("supervisorId") Long supervisorId,
-                                      @Param("status") MonthlyTimesheet.TimesheetStatus status);
+    // Find current version timesheets assigned to supervisor by status
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId " +
+            "AND mt.status = :status AND mt.isCurrentVersion = true ORDER BY mt.submittedAt ASC")
+    List<MonthlyTimesheet> findCurrentVersionsByApprovedByIdAndStatus(@Param("supervisorId") Long supervisorId,
+                                                                      @Param("status") MonthlyTimesheet.TimesheetStatus status);
 
-    // NEW: Count approved timesheets in date range for dashboard
+    // Find current version timesheets assigned to supervisor with multiple statuses
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId " +
+            "AND mt.status IN :statuses AND mt.isCurrentVersion = true ORDER BY mt.submittedAt DESC")
+    List<MonthlyTimesheet> findCurrentVersionsByApprovedByIdAndStatusIn(@Param("supervisorId") Long supervisorId,
+                                                                        @Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
+
+    // Find ALL VERSIONS for supervisor (for complete history)
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId " +
+            "AND mt.status IN :statuses ORDER BY mt.year DESC, mt.month DESC, mt.version DESC")
+    List<MonthlyTimesheet> findAllVersionsByApprovedByIdAndStatusIn(@Param("supervisorId") Long supervisorId,
+                                                                    @Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
+
+    // Count current version timesheets by supervisor and status
     @Query("SELECT COUNT(mt) FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId " +
-            "AND mt.status = :status AND mt.approvedAt BETWEEN :startDate AND :endDate")
-    long countByApprovedByIdAndStatusAndApprovedAtBetween(@Param("supervisorId") Long supervisorId,
-                                                          @Param("status") MonthlyTimesheet.TimesheetStatus status,
-                                                          @Param("startDate") LocalDateTime startDate,
-                                                          @Param("endDate") LocalDateTime endDate);
+            "AND mt.status = :status AND mt.isCurrentVersion = true")
+    long countCurrentVersionsByApprovedByIdAndStatus(@Param("supervisorId") Long supervisorId,
+                                                     @Param("status") MonthlyTimesheet.TimesheetStatus status);
 
-    // LEGACY: Find timesheets pending approval for supervisor (using user.supervisor relationship)
+    // Count current version approved timesheets in date range
+    @Query("SELECT COUNT(mt) FROM MonthlyTimesheet mt WHERE mt.approvedBy.id = :supervisorId " +
+            "AND mt.status = :status AND mt.approvedAt BETWEEN :startDate AND :endDate " +
+            "AND mt.isCurrentVersion = true")
+    long countCurrentVersionsByApprovedByIdAndStatusAndApprovedAtBetween(@Param("supervisorId") Long supervisorId,
+                                                                         @Param("status") MonthlyTimesheet.TimesheetStatus status,
+                                                                         @Param("startDate") LocalDateTime startDate,
+                                                                         @Param("endDate") LocalDateTime endDate);
+
+    // ========== LEGACY SUPERVISOR METHODS (using user.supervisor relationship) ==========
+
+    // Find current version pending approval for supervisor
     @Query("SELECT mt FROM MonthlyTimesheet mt " +
             "JOIN mt.user u " +
             "WHERE u.supervisor.id = :supervisorId AND mt.status = 'submitted' " +
+            "AND mt.isCurrentVersion = true " +
             "ORDER BY mt.submittedAt ASC")
-    List<MonthlyTimesheet> findPendingApprovalBySupervisor(@Param("supervisorId") Long supervisorId);
+    List<MonthlyTimesheet> findCurrentVersionsPendingApprovalBySupervisor(@Param("supervisorId") Long supervisorId);
 
-    // LEGACY: Find all timesheets for supervisor (all statuses) using user.supervisor relationship
+    // Find current versions for supervisor using user.supervisor relationship
     @Query("SELECT mt FROM MonthlyTimesheet mt " +
             "JOIN mt.user u " +
             "WHERE u.supervisor.id = :supervisorId AND mt.status IN :statuses " +
-            "ORDER BY mt.year DESC, mt.month DESC, mt.submittedAt DESC")
-    List<MonthlyTimesheet> findBySupervisorAndStatusIn(@Param("supervisorId") Long supervisorId,
-                                                       @Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
-
-    // Find timesheets by year and month
-    List<MonthlyTimesheet> findByYearAndMonthOrderByUserFullNameAsc(Integer year, Integer month);
-
-    // Check if timesheet exists
-    boolean existsByUserIdAndYearAndMonth(Long userId, Integer year, Integer month);
-
-    // Find submitted timesheets
-    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.status IN ('submitted', 'pending', 'approved', 'rejected') " +
-            "ORDER BY mt.year DESC, mt.month DESC, mt.submittedAt DESC")
-    List<MonthlyTimesheet> findSubmittedTimesheets();
-
-    // Count timesheets by status
-    long countByStatus(MonthlyTimesheet.TimesheetStatus status);
-
-    // Find timesheets by multiple statuses
-    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.status IN :statuses " +
+            "AND mt.isCurrentVersion = true " +
             "ORDER BY mt.year DESC, mt.month DESC")
-    List<MonthlyTimesheet> findByStatusIn(@Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
+    List<MonthlyTimesheet> findCurrentVersionsBySupervisorAndStatusIn(@Param("supervisorId") Long supervisorId,
+                                                                      @Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
+
+    // Find all versions for supervisor using user.supervisor relationship (for complete history)
+    @Query("SELECT mt FROM MonthlyTimesheet mt " +
+            "JOIN mt.user u " +
+            "WHERE u.supervisor.id = :supervisorId AND mt.status IN :statuses " +
+            "ORDER BY mt.year DESC, mt.month DESC, mt.version DESC")
+    List<MonthlyTimesheet> findAllVersionsBySupervisorAndStatusIn(@Param("supervisorId") Long supervisorId,
+                                                                  @Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
+
+    // ========== GENERAL QUERY METHODS (VERSIONING-AWARE) ==========
+
+    // Find timesheets by status (current versions only)
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.status = :status " +
+            "AND mt.isCurrentVersion = true ORDER BY mt.submittedAt ASC")
+    List<MonthlyTimesheet> findCurrentVersionsByStatus(@Param("status") MonthlyTimesheet.TimesheetStatus status);
+
+    // Find by year and month (current versions only)
+    @Query("SELECT mt FROM MonthlyTimesheet mt JOIN FETCH mt.user u " +
+            "WHERE mt.year = :year AND mt.month = :month AND mt.isCurrentVersion = true " +
+            "ORDER BY u.fullName ASC")
+    List<MonthlyTimesheet> findCurrentVersionsByYearAndMonthOrderByUserFullNameAsc(@Param("year") Integer year,
+                                                                                   @Param("month") Integer month);
+
+    // Check if timesheet exists (current version only)
+    @Query("SELECT COUNT(mt) > 0 FROM MonthlyTimesheet mt WHERE mt.user.id = :userId " +
+            "AND mt.year = :year AND mt.month = :month AND mt.isCurrentVersion = true")
+    boolean existsCurrentVersionByUserIdAndYearAndMonth(@Param("userId") Long userId,
+                                                        @Param("year") Integer year,
+                                                        @Param("month") Integer month);
+
+    // Find submitted timesheets (current versions only)
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.status IN ('submitted', 'pending', 'approved', 'rejected') " +
+            "AND mt.isCurrentVersion = true " +
+            "ORDER BY mt.year DESC, mt.month DESC, mt.submittedAt DESC")
+    List<MonthlyTimesheet> findCurrentVersionsSubmittedTimesheets();
+
+    // Count timesheets by status (current versions only)
+    @Query("SELECT COUNT(mt) FROM MonthlyTimesheet mt WHERE mt.status = :status AND mt.isCurrentVersion = true")
+    long countCurrentVersionsByStatus(@Param("status") MonthlyTimesheet.TimesheetStatus status);
+
+    // Find timesheets by multiple statuses (current versions only)
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.status IN :statuses AND mt.isCurrentVersion = true " +
+            "ORDER BY mt.year DESC, mt.month DESC")
+    List<MonthlyTimesheet> findCurrentVersionsByStatusIn(@Param("statuses") List<MonthlyTimesheet.TimesheetStatus> statuses);
+
+    // ========== VERSIONING UTILITY METHODS ==========
+
+    // Find previous version of a timesheet
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.id = :previousVersionId")
+    Optional<MonthlyTimesheet> findPreviousVersion(@Param("previousVersionId") Long previousVersionId);
+
+    // Get version history for a specific user/year/month
+    @Query("SELECT mt FROM MonthlyTimesheet mt WHERE mt.user.id = :userId " +
+            "AND mt.year = :year AND mt.month = :month ORDER BY mt.version ASC")
+    List<MonthlyTimesheet> getVersionHistory(@Param("userId") Long userId,
+                                             @Param("year") Integer year,
+                                             @Param("month") Integer month);
+
+    // Find latest version number for a user/year/month combination
+    @Query("SELECT COALESCE(MAX(mt.version), 0) FROM MonthlyTimesheet mt " +
+            "WHERE mt.user.id = :userId AND mt.year = :year AND mt.month = :month")
+    Integer findLatestVersionNumber(@Param("userId") Long userId,
+                                    @Param("year") Integer year,
+                                    @Param("month") Integer month);
+
+    // ========== BACKWARD COMPATIBILITY METHODS (Delegate to versioning-aware methods) ==========
+
+    // Legacy method - gets current version
+    default Optional<MonthlyTimesheet> findByUserIdAndYearAndMonth(Long userId, Integer year, Integer month) {
+        return findCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
+    }
+
+    // Legacy method - gets all versions for history
+    List<MonthlyTimesheet> findByUserIdOrderByYearDescMonthDesc(Long userId);
+
+    // Legacy supervisor methods (backward compatibility)
+    default List<MonthlyTimesheet> findByApprovedByIdAndStatus(Long supervisorId, MonthlyTimesheet.TimesheetStatus status) {
+        return findCurrentVersionsByApprovedByIdAndStatus(supervisorId, status);
+    }
+
+    default List<MonthlyTimesheet> findByApprovedByIdAndStatusIn(Long supervisorId, List<MonthlyTimesheet.TimesheetStatus> statuses) {
+        return findCurrentVersionsByApprovedByIdAndStatusIn(supervisorId, statuses);
+    }
+
+    default long countByApprovedByIdAndStatus(Long supervisorId, MonthlyTimesheet.TimesheetStatus status) {
+        return countCurrentVersionsByApprovedByIdAndStatus(supervisorId, status);
+    }
+
+    default long countByApprovedByIdAndStatusAndApprovedAtBetween(Long supervisorId,
+                                                                  MonthlyTimesheet.TimesheetStatus status,
+                                                                  LocalDateTime startDate,
+                                                                  LocalDateTime endDate) {
+        return countCurrentVersionsByApprovedByIdAndStatusAndApprovedAtBetween(supervisorId, status, startDate, endDate);
+    }
+
+    default List<MonthlyTimesheet> findPendingApprovalBySupervisor(Long supervisorId) {
+        return findCurrentVersionsPendingApprovalBySupervisor(supervisorId);
+    }
+
+    default List<MonthlyTimesheet> findBySupervisorAndStatusIn(Long supervisorId, List<MonthlyTimesheet.TimesheetStatus> statuses) {
+        return findCurrentVersionsBySupervisorAndStatusIn(supervisorId, statuses);
+    }
+
+    // Legacy general methods (backward compatibility)
+    default List<MonthlyTimesheet> findByStatus(MonthlyTimesheet.TimesheetStatus status) {
+        return findCurrentVersionsByStatus(status);
+    }
+
+    default List<MonthlyTimesheet> findByYearAndMonthOrderByUserFullNameAsc(Integer year, Integer month) {
+        return findCurrentVersionsByYearAndMonthOrderByUserFullNameAsc(year, month);
+    }
+
+    default boolean existsByUserIdAndYearAndMonth(Long userId, Integer year, Integer month) {
+        return existsCurrentVersionByUserIdAndYearAndMonth(userId, year, month);
+    }
+
+    default List<MonthlyTimesheet> findSubmittedTimesheets() {
+        return findCurrentVersionsSubmittedTimesheets();
+    }
+
+    default long countByStatus(MonthlyTimesheet.TimesheetStatus status) {
+        return countCurrentVersionsByStatus(status);
+    }
+
+    default List<MonthlyTimesheet> findByStatusIn(List<MonthlyTimesheet.TimesheetStatus> statuses) {
+        return findCurrentVersionsByStatusIn(statuses);
+    }
 }
