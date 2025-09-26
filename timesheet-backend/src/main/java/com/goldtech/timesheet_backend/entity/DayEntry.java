@@ -84,8 +84,7 @@ public class DayEntry {
         paternity_leave,
         compassionate_leave,
         maternity_leave,
-        day_off,
-        no_entry
+        day_off
     }
 
     public enum HalfDayPeriod {

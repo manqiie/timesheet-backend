@@ -1,4 +1,4 @@
-// Updated TimesheetService.java - Submit method with versioning support
+// Updated TimesheetService.java - Direct deletion and simplified validation
 package com.goldtech.timesheet_backend.service;
 
 import com.goldtech.timesheet_backend.dto.timesheet.*;
@@ -176,7 +176,7 @@ public class TimesheetService {
     }
 
     /**
-     * Submit timesheet for approval - UPDATED WITH VERSIONING SUPPORT
+     * Submit timesheet for approval - UPDATED WITH VERSIONING SUPPORT AND SIMPLIFIED VALIDATION
      */
     public TimesheetResponseDto submitTimesheet(Long userId, Integer year, Integer month) {
         logger.debug("Submitting timesheet for user {} - {}/{}", userId, year, month);
@@ -190,9 +190,11 @@ public class TimesheetService {
                     businessRulesService.getSubmissionDeadlineMessage(year, month));
         }
 
-        // Validate timesheet content
+        // SIMPLIFIED validation - just check at least one entry exists
         long entryCount = dayEntryRepository.countByUserIdAndYearAndMonth(userId, year, month);
-        businessRulesService.validateTimesheetForSubmission(userId, year, month, entryCount);
+        if (entryCount == 0) {
+            throw new IllegalArgumentException("Cannot submit empty timesheet. Please add at least one entry.");
+        }
 
         // Get supervisor
         User employee = getUserById(userId);
@@ -270,7 +272,7 @@ public class TimesheetService {
     }
 
     /**
-     * Delete a day entry - UPDATED to handle properly
+     * Delete a day entry - UPDATED for direct deletion (no no_entry)
      */
     public void deleteDayEntry(Long userId, String date) {
         LocalDate entryDate = LocalDate.parse(date);
@@ -284,19 +286,10 @@ public class TimesheetService {
             // Delete associated documents first
             entryService.deleteExistingDocuments(entry);
 
-            // Set entry type to no_entry instead of deleting
-            entry.setEntryType(DayEntry.EntryType.no_entry);
-            entry.setStartTime(null);
-            entry.setEndTime(null);
-            entry.setHalfDayPeriod(null);
-            entry.setDateEarned(null);
-            entry.setPrimaryDocumentDay(null);
-            entry.setIsPrimaryDocument(false);
-            entry.setNotes("Entry deleted by user");
+            // DIRECTLY DELETE the entry (no no_entry marking)
+            dayEntryRepository.delete(entry);
 
-            dayEntryRepository.save(entry);
-
-            logger.info("Day entry marked as deleted (no_entry) for user {} on {}", userId, date);
+            logger.info("Day entry completely deleted for user {} on {}", userId, date);
         } else {
             logger.info("No entry found to delete for user {} on {}", userId, date);
         }
