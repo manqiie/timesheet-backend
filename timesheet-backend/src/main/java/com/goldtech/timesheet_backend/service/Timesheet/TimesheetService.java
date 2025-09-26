@@ -292,7 +292,7 @@ public class TimesheetService {
             entry.setDateEarned(null);
             entry.setPrimaryDocumentDay(null);
             entry.setIsPrimaryDocument(false);
-            entry.setNotes("Entry deleted by user");
+            entry.setNotes(null);
 
             dayEntryRepository.save(entry);
 
